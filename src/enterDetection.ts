@@ -16,108 +16,72 @@ async function addRealPromptToActivityBar(realPrompt: string, debugChannel: vsco
 }
 
 export function initializeEnterKeyDetection(handleAIActivity: () => void, debugChannel: vscode.OutputChannel): vscode.Disposable[] {
-    debugChannel.appendLine("🚀 SIMPLIFIED Enter interception - Focus on REAL text capture!");
+    debugChannel.appendLine("🚀 WEBVIEW-FOCUSED Enter interception!");
     
-    // Storage for the last user input before it gets cleared
-    let lastUserInput = "";
-    
-    // Monitor text document changes to capture user input as they type
-    const textChangeListener = vscode.workspace.onDidChangeTextDocument((event) => {
-        const uri = event.document.uri.toString();
-        const scheme = event.document.uri.scheme;
-        
-        // Skip our own output and other irrelevant documents
-        if (uri.includes('SpecStoryAutoSave') || 
-            uri.includes('output') || 
-            scheme === 'output') {
-            return;
-        }
-        
-        // Look for Copilot Chat related schemes or untitled documents that might contain user input
-        if (scheme === 'untitled' || 
-            scheme === 'chat-editing-snapshot-text-model' ||
-            scheme.includes('copilot') ||
-            scheme.includes('chat')) {
-            
-            const currentText = event.document.getText().trim();
-            
-            // Only store if it looks like user input (not empty, not too long, not debug text)
-            if (currentText && 
-                currentText.length > 0 && 
-                currentText.length < 3000 &&
-                !currentText.includes('[DEBUG]') &&
-                !currentText.includes('Activity Bar') &&
-                !currentText.includes('constructor') &&
-                !currentText.includes('📋') &&
-                !currentText.includes('✅')) {
-                
-                lastUserInput = currentText;
-                debugChannel.appendLine(`💾 Captured user input: "${lastUserInput.substring(0, 100)}..."`);
-            }
-        }
-    });
-    
-    // Our main Enter key interceptor
+    // Our main Enter key interceptor - different approach
     const cmd = vscode.commands.registerCommand("specstoryautosave.interceptEnter", async () => {
-        debugChannel.appendLine("🎯 ENTER INTERCEPTED!");
+        debugChannel.appendLine("🎯 ENTER INTERCEPTED - USING SELECTION APPROACH!");
         
         let realUserPrompt = "";
         
-        // Method 1: Use the last captured user input
-        if (lastUserInput && lastUserInput.length > 0) {
-            realUserPrompt = lastUserInput;
-            debugChannel.appendLine(`📝 Using stored user input: "${realUserPrompt}"`);
-        }
-        
-        // Method 2: Try to capture current state if no stored input
-        if (!realUserPrompt) {
-            debugChannel.appendLine("📋 No stored input - trying current capture...");
-            
+        // NEW APPROACH: Try to get selected text or text from selection
+        try {
             const activeEditor = vscode.window.activeTextEditor;
             if (activeEditor) {
-                const text = activeEditor.document.getText().trim();
-                const scheme = activeEditor.document.uri.scheme;
+                // Method 1: Get selected text first
+                const selection = activeEditor.selection;
+                if (!selection.isEmpty) {
+                    realUserPrompt = activeEditor.document.getText(selection);
+                    debugChannel.appendLine(`📝 Got SELECTED text: "${realUserPrompt}"`);
+                }
                 
-                debugChannel.appendLine(`🔍 Active editor: ${scheme} - "${text}"`);
+                // Method 2: If no selection, get all text from current line or document
+                if (!realUserPrompt) {
+                    const currentLine = activeEditor.document.lineAt(selection.active.line);
+                    const lineText = currentLine.text.trim();
+                    
+                    if (lineText && lineText.length > 0) {
+                        realUserPrompt = lineText;
+                        debugChannel.appendLine(`📝 Got LINE text: "${realUserPrompt}"`);
+                    } else {
+                        // Last resort - get full document text
+                        const fullText = activeEditor.document.getText().trim();
+                        if (fullText && fullText.length > 0 && fullText.length < 2000) {
+                            realUserPrompt = fullText;
+                            debugChannel.appendLine(`� Got FULL text: "${realUserPrompt}"`);
+                        }
+                    }
+                }
                 
-                if (text && 
-                    text.length > 0 && 
-                    text.length < 3000 &&
-                    !text.includes('[DEBUG]') &&
-                    !text.includes('Activity Bar') &&
-                    !text.includes('constructor')) {
-                    realUserPrompt = text;
-                    debugChannel.appendLine(`📝 Using active editor text: "${realUserPrompt}"`);
+                debugChannel.appendLine(`🔍 Editor details:`);
+                debugChannel.appendLine(`  - Scheme: ${activeEditor.document.uri.scheme}`);
+                debugChannel.appendLine(`  - Language: ${activeEditor.document.languageId}`);
+                debugChannel.appendLine(`  - URI: ${activeEditor.document.uri.toString()}`);
+            }
+            
+            // Method 3: Manual prompt if nothing found
+            if (!realUserPrompt) {
+                debugChannel.appendLine("📋 No text found - trying manual input...");
+                
+                // Ask user to type the prompt manually (for testing)
+                realUserPrompt = await vscode.window.showInputBox({
+                    prompt: "Enter your Copilot prompt (for testing)",
+                    placeHolder: "Type your question here..."
+                }) || "";
+                
+                if (realUserPrompt) {
+                    debugChannel.appendLine(`📝 Got MANUAL input: "${realUserPrompt}"`);
                 }
             }
             
-            // Try visible editors
-            if (!realUserPrompt) {
-                const visibleEditors = vscode.window.visibleTextEditors;
-                for (const editor of visibleEditors) {
-                    const text = editor.document.getText().trim();
-                    const scheme = editor.document.uri.scheme;
-                    
-                    if (text && 
-                        text.length > 0 && 
-                        text.length < 3000 &&
-                        !text.includes('[DEBUG]') &&
-                        !text.includes('Activity Bar')) {
-                        realUserPrompt = text;
-                        debugChannel.appendLine(`📝 Using visible editor (${scheme}): "${realUserPrompt}"`);
-                        break;
-                    }
-                }
-            }
+        } catch (error) {
+            debugChannel.appendLine(`❌ Error in capture: ${error}`);
         }
         
         // Add to Activity Bar
         if (realUserPrompt && realUserPrompt.length > 0) {
             debugChannel.appendLine(`✅ Adding user prompt to Activity Bar`);
             await addRealPromptToActivityBar(realUserPrompt, debugChannel);
-            
-            // Clear the stored input after using it
-            lastUserInput = "";
         } else {
             debugChannel.appendLine(`⚠️ No user prompt captured`);
             const fallbackPrompt = "Enter pressed in Copilot Chat";
@@ -138,8 +102,8 @@ export function initializeEnterKeyDetection(handleAIActivity: () => void, debugC
         debugChannel.appendLine("🔄 Processing completed");
     });
     
-    debugChannel.appendLine("🚀 Simplified Enter interception is ACTIVE!");
-    return [cmd, textChangeListener];
+    debugChannel.appendLine("🚀 Manual input approach is ACTIVE!");
+    return [cmd];
 }
 
 export function disposeEnterKeyDetection(): void {}
