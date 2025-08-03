@@ -2,7 +2,7 @@
   "name": "specstory-autosave",
   "displayName": "SpecStory AutoSave + AI Copilot Prompt Detection",
   "description": "Auto-exports GitHub Copilot Chat to SpecStory documentation + instant AI prompt detection with quality verification notifications",
-  "version": "1.1.25",
+  	"version": "1.1.28",
   "publisher": "sunamocz",
   "icon": "icon.png",
   "repository": {
@@ -107,6 +107,25 @@
         "when": "editorTextFocus"
       }
     ],
+    "viewsContainers": {
+      "activitybar": [
+        {
+          "id": "specstoryAI",
+          "title": "SpecStory AI Monitor",
+          "icon": "$(robot)"
+        }
+      ]
+    },
+    "views": {
+      "specstoryAI": [
+        {
+          "id": "specstoryAINotifications",
+          "name": "AI Activity",
+          "type": "webview",
+          "when": "true"
+        }
+      ]
+    },
     "configuration": {
       "title": "SpecStoryAutoSave",
       "properties": {
@@ -215,6 +234,17 @@
           "type": "boolean",
           "default": true,
           "description": "Show only Copilot/AI related logs in the output channel (filters out other extension logs)"
+        },
+        "specstoryautosave.notificationDisplayType": {
+          "type": "string",
+          "enum": ["notification", "panel", "activitybar"],
+          "default": "panel",
+          "description": "Choose how to display AI activity notifications: 'notification' for VS Code popup, 'panel' for webview panel, 'activitybar' for dedicated activity bar view",
+          "enumDescriptions": [
+            "Show simple popup notifications (single line only)",
+            "Show detailed webview panels with formatting and buttons",
+            "Show in dedicated activity bar view with persistent history"
+          ]
         }
       }
     }

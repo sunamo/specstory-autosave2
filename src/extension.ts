@@ -1,5 +1,122 @@
 import * as vscode from 'vscode';
 
+// WebView Provider for Activity Bar
+class AIActivityProvider implements vscode.WebviewViewProvider {
+    public static readonly viewType = 'specstoryAINotifications';
+    private _view?: vscode.WebviewView;
+    private _notifications: string[] = [];
+
+    constructor(private readonly _extensionUri: vscode.Uri) {}
+
+    public resolveWebviewView(
+        webviewView: vscode.WebviewView,
+        context: vscode.WebviewViewResolveContext,
+        _token: vscode.CancellationToken,
+    ) {
+        this._view = webviewView;
+
+        webviewView.webview.options = {
+            enableScripts: true,
+            localResourceRoots: [this._extensionUri]
+        };
+
+        webviewView.webview.html = this._getHtmlForWebview(webviewView.webview);
+
+        webviewView.webview.onDidReceiveMessage(data => {
+            switch (data.type) {
+                case 'clearAll':
+                    this._notifications = [];
+                    this._updateView();
+                    break;
+            }
+        });
+    }
+
+    public addNotification(message: string) {
+        const timestamp = new Date().toLocaleTimeString();
+        this._notifications.unshift(`[${timestamp}] ${message}`);
+        
+        // Keep only last 10 notifications
+        if (this._notifications.length > 10) {
+            this._notifications = this._notifications.slice(0, 10);
+        }
+        
+        this._updateView();
+    }
+
+    private _updateView() {
+        if (this._view) {
+            this._view.webview.html = this._getHtmlForWebview(this._view.webview);
+        }
+    }
+
+    private _getHtmlForWebview(webview: vscode.Webview) {
+        const notificationsList = this._notifications.length > 0 
+            ? this._notifications.map(notification => `<div class="notification">${notification}</div>`).join('')
+            : '<div class="no-notifications">No AI activity detected yet...</div>';
+
+        return `<!DOCTYPE html>
+        <html lang="en">
+        <head>
+            <meta charset="UTF-8">
+            <meta name="viewport" content="width=device-width, initial-scale=1.0">
+            <title>AI Activity</title>
+            <style>
+                body {
+                    font-family: var(--vscode-font-family);
+                    font-size: var(--vscode-font-size);
+                    line-height: var(--vscode-font-weight);
+                    color: var(--vscode-foreground);
+                    background-color: var(--vscode-editor-background);
+                    margin: 0;
+                    padding: 10px;
+                }
+                .notification {
+                    background-color: var(--vscode-editor-selectionBackground);
+                    border-left: 3px solid var(--vscode-charts-blue);
+                    padding: 8px;
+                    margin: 5px 0;
+                    border-radius: 3px;
+                    font-size: 11px;
+                }
+                .no-notifications {
+                    color: var(--vscode-descriptionForeground);
+                    font-style: italic;
+                    text-align: center;
+                    padding: 20px;
+                }
+                .clear-button {
+                    background-color: var(--vscode-button-background);
+                    color: var(--vscode-button-foreground);
+                    border: none;
+                    padding: 6px 12px;
+                    cursor: pointer;
+                    border-radius: 3px;
+                    font-size: 11px;
+                    margin-bottom: 10px;
+                    width: 100%;
+                }
+                .clear-button:hover {
+                    background-color: var(--vscode-button-hoverBackground);
+                }
+            </style>
+        </head>
+        <body>
+            <button class="clear-button" onclick="clearAll()">Clear History</button>
+            <div id="notifications">
+                ${notificationsList}
+            </div>
+            <script>
+                const vscode = acquireVsCodeApi();
+                function clearAll() {
+                    vscode.postMessage({ type: 'clearAll' });
+                }
+            </script>
+        </body>
+        </html>`;
+    }
+}
+
 let outputChannel: vscode.OutputChannel;
 let debugChannel: vscode.OutputChannel;
 let statusBarItem: vscode.StatusBarItem;
@@ -7,11 +124,19 @@ let copilotOutputChannel: vscode.OutputChannel | undefined;
 let aiPromptCounter = 0;
 let lastDetectedTime = 0;
 let countdownTimer: NodeJS.Timeout | undefined;
+let aiNotificationPanel: vscode.WebviewPanel | undefined;
+let aiActivityProvider: AIActivityProvider;
 
 export function activate(context: vscode.ExtensionContext) {
     // Create output channels
     outputChannel = vscode.window.createOutputChannel('SpecStoryAutoSave');
     debugChannel = vscode.window.createOutputChannel('SpecStoryAutoSave Debug');
+    
+    // Register webview provider for activity bar
+    aiActivityProvider = new AIActivityProvider(context.extensionUri);
+    context.subscriptions.push(
+        vscode.window.registerWebviewViewProvider(AIActivityProvider.viewType, aiActivityProvider)
+    );
     
     // Create status bar item
     statusBarItem = vscode.window.createStatusBarItem(vscode.StatusBarAlignment.Right, 100);
@@ -1132,53 +1257,109 @@ async function showAINotificationImmediately() {
         countdownTimer = undefined;
     }
     
-    debugChannel.appendLine('[DEBUG] Creating webview panel for AI notification...');
+    // Get user preference for notification type
+    const config = vscode.workspace.getConfiguration('specstoryautosave');
+    const displayType = config.get<string>('notificationDisplayType', 'panel');
     
-    // Create webview panel
-    const panel = vscode.window.createWebviewPanel(
-        'aiNotification',
-        '🤖 AI Activity Detected',
-        vscode.ViewColumn.Beside,
-        {
-            enableScripts: true,
-            retainContextWhenHidden: true
+    if (displayType === 'notification') {
+        // Use traditional VS Code notification
+        debugChannel.appendLine('[DEBUG] Using VS Code notification display');
+        const action = await vscode.window.showInformationMessage(
+            message.replace(/\n/g, ' | '), // Replace newlines with separators for single-line display
+            'Check Status',
+            'Everything OK',
+            'Dismiss'
+        );
+        
+        switch (action) {
+            case 'Check Status':
+                debugChannel.appendLine('[DEBUG] User will check the AI response status');
+                break;
+            case 'Everything OK':
+                debugChannel.appendLine('[DEBUG] User confirmed AI response is correct - everything OK');
+                break;
+            case 'Dismiss':
+                debugChannel.appendLine('[DEBUG] User dismissed notification');
+                break;
         }
-    );
-    
-    // Set webview content
-    panel.webview.html = getWebviewContent(message);
-    
-    // Handle messages from webview
-    panel.webview.onDidReceiveMessage(
-        message => {
-            switch (message.command) {
-                case 'checkStatus':
-                    debugChannel.appendLine('[DEBUG] User will check the AI response status');
-                    panel.dispose();
-                    return;
-                case 'everythingOK':
-                    debugChannel.appendLine('[DEBUG] User confirmed AI response is correct - everything OK');
-                    panel.dispose();
-                    return;
-                case 'dismiss':
-                    debugChannel.appendLine('[DEBUG] User dismissed notification');
-                    panel.dispose();
-                    return;
+    } else if (displayType === 'activitybar') {
+        // Use activity bar view
+        debugChannel.appendLine('[DEBUG] Using activity bar display');
+        aiActivityProvider.addNotification(message);
+        
+        // Focus the activity bar view
+        vscode.commands.executeCommand('workbench.view.extension.specstoryAI');
+        
+    } else {
+        // Use webview panel
+        if (!aiNotificationPanel) {
+            // Create new panel only if none exists
+            debugChannel.appendLine('[DEBUG] Creating new webview panel for AI notification...');
+            
+            aiNotificationPanel = vscode.window.createWebviewPanel(
+                'aiNotification',
+                '🤖 AI Activity Detected',
+                vscode.ViewColumn.Beside,
+                {
+                    enableScripts: true,
+                    retainContextWhenHidden: true
+                }
+            );
+            
+            // Handle panel disposal
+            aiNotificationPanel.onDidDispose(() => {
+                debugChannel.appendLine('[DEBUG] AI notification panel disposed');
+                aiNotificationPanel = undefined;
+            });
+            
+            // Handle messages from webview
+            aiNotificationPanel.webview.onDidReceiveMessage(
+                message => {
+                    switch (message.command) {
+                        case 'checkStatus':
+                            debugChannel.appendLine('[DEBUG] User will check the AI response status');
+                            if (aiNotificationPanel) {
+                                aiNotificationPanel.dispose();
+                            }
+                            return;
+                        case 'everythingOK':
+                            debugChannel.appendLine('[DEBUG] User confirmed AI response is correct - everything OK');
+                            if (aiNotificationPanel) {
+                                aiNotificationPanel.dispose();
+                            }
+                            return;
+                        case 'dismiss':
+                            debugChannel.appendLine('[DEBUG] User dismissed notification');
+                            if (aiNotificationPanel) {
+                                aiNotificationPanel.dispose();
+                            }
+                            return;
+                    }
+                },
+                undefined,
+                []
+            );
+        } else {
+            // Reuse existing panel
+            debugChannel.appendLine('[DEBUG] Reusing existing webview panel...');
+        }
+        
+        // Update panel content (for both new and existing panels)
+        aiNotificationPanel.webview.html = getWebviewContent(message);
+        
+        // Bring panel to focus
+        aiNotificationPanel.reveal(vscode.ViewColumn.Beside);
+        
+        // Auto-close after 30 seconds (clear previous timer)
+        setTimeout(() => {
+            if (aiNotificationPanel && aiNotificationPanel.visible) {
+                debugChannel.appendLine('[DEBUG] Auto-closing AI notification panel after 30 seconds');
+                aiNotificationPanel.dispose();
             }
-        },
-        undefined,
-        []
-    );
+        }, 30000);
+    }
     
-    // Auto-close after 30 seconds
-    setTimeout(() => {
-        if (panel.visible) {
-            debugChannel.appendLine('[DEBUG] Auto-closing AI notification panel after 30 seconds');
-            panel.dispose();
-        }
-    }, 30000);
-    
-    debugChannel.appendLine('[DEBUG] AI notification webview panel created');
+    debugChannel.appendLine('[DEBUG] AI notification ready');
 }
 
 function updateStatusBar() {

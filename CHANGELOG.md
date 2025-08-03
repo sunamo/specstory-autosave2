@@ -3,7 +3,49 @@
 ## [1.1.25] - 2025-08-03
 
 ### Added
-- **NEW: Webview Panel notifications!** - Beautiful HTML notifications with proper multi-line formatting
+## [1.1.28] - 2025-01-08
+### Added
+- Activity Bar integration with dedicated "SpecStory AI Monitor" view
+- New notification display option: "activitybar" for persistent AI activity history
+- Robot icon ($(robot)) in VS Code activity bar for easy access
+- Auto-focus activity bar view when AI prompt is detected
+- Persistent notification history with timestamp tracking (last 10 notifications)
+- Clear history button in activity bar view
+
+### Changed
+- Enhanced notification display options: notification, panel, or activity bar
+- Improved user experience with dedicated AI monitoring workspace
+- Better integration with VS Code UI patterns
+
+## [1.1.27] - 2025-01-08
+### Added
+- Configuration option `notificationDisplayType` to choose between notification popup or webview panel
+- Smart panel management: only creates new panel if none exists, otherwise reuses existing panel
+- Support for both traditional VS Code notifications and enhanced webview panels
+
+### Changed
+- Panel creation logic: never creates multiple panels, always reuses existing one
+- Improved user control over notification display preferences
+- Enhanced debug logging for notification type selection
+
+## [1.1.26] - 2025-01-08
+### Changed
+- Webview panel reuse: Now reuses existing notification panel instead of creating new tabs
+- Enhanced panel lifecycle management with proper disposal handling
+- Improved user experience by avoiding tab proliferation
+
+## [1.1.25] - 2025-01-08
+### Added
+- Webview panel notifications for multi-line AI prompt display
+- Enhanced HTML/CSS styling for notification panels
+- Interactive buttons: "Check Status", "Everything OK", "Dismiss"
+- Auto-close functionality after 30 seconds
+- Proper multi-line formatting support replacing VS Code notification limitations
+
+### Changed
+- Replaced VS Code showInformationMessage with webview panels for better formatting
+- Added comprehensive debug logging for panel operations
+- Updated i18n templates for webview compatibility
 - Custom styled notification panel with VS Code theme integration
 - Interactive buttons with proper hover effects and VS Code styling
 - Auto-close after 30 seconds functionality

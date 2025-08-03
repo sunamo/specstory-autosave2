@@ -83,4 +83,4 @@ if ($result.ExitCode -eq 0) {
 }
 
 Write-Host "===================================================" -ForegroundColor Green
-Write-Host "Build, Release & Installation complete!" -ForegroundColor Green
+Write-Host "Build, Release and Installation complete!" -ForegroundColor Green
