@@ -263,8 +263,8 @@ export function initializeEnterKeyDetection(
         }
     });
 
-    // Method 7: ULTIMATE VS Code Source-Based Enter Key Detection
-    // Direct interception of type command based on VS Code architecture analysis
+    // Method 7: INSTANT Pre-Submit Enter Key Detection
+    // Zachytí Enter OKAMŽITĚ před odesláním zprávy (pre-submit detection)
     const keyboardListener = vscode.commands.registerCommand('type', (args) => {
         const activeEditor = vscode.window.activeTextEditor;
         const now = Date.now();
@@ -279,26 +279,30 @@ export function initializeEnterKeyDetection(
             );
             
             if (isVSCodeChatContext) {
-                // Detect Enter key press (newline characters)
+                // INSTANT detection of Enter key press (newline characters)
                 if (args.text.includes('\n') || args.text === '\r' || args.text === '\r\n') {
-                    // Only if we had some content before
-                    if (lastChatContent.length > 2 && now - lastActivityTime > 50) {
-                        debugChannel.appendLine(`⚡ ULTIMATE: ENTER KEY PRESSED in VS Code Chat!`);
-                        debugChannel.appendLine(`   Content before Enter: "${lastChatContent.substring(0, 30)}..."`);
-                        debugChannel.appendLine(`   URI Scheme: ${activeEditor.document.uri.scheme}`);
-                        debugChannel.appendLine(`   This is VS Code source-based detection!`);
+                    const currentContent = activeEditor.document.getText();
+                    
+                    // OKAMŽITÁ detekce - spustíme hned bez čekání!
+                    if (currentContent.trim().length > 2 && now - lastActivityTime > 30) {
+                        debugChannel.appendLine(`🚀⚡ INSTANT ENTER DETECTED in VS Code Chat!`);
+                        debugChannel.appendLine(`   IMMEDIATE ACTION - no waiting!`);
+                        debugChannel.appendLine(`   Content: "${currentContent.substring(0, 50)}..."`);
+                        debugChannel.appendLine(`   URI: ${activeEditor.document.uri.scheme}`);
+                        debugChannel.appendLine(`   Timestamp: ${new Date().toISOString()}`);
                         
-                        // Short delay to capture the submit action
-                        setTimeout(() => {
-                            const afterEnterText = activeEditor.document.getText();
-                            if (afterEnterText.length < lastChatContent.length * 0.5 || afterEnterText === '') {
-                                debugChannel.appendLine(`✅ CONFIRMED: VS Code Chat message was submitted via Enter!`);
-                                debugChannel.appendLine(`   Text length change: ${lastChatContent.length} → ${afterEnterText.length}`);
-                                handleAIActivity();
-                            }
-                        }, 50);
-                        
+                        // OKAMŽITÁ aktivace - bez setTimeout!
+                        handleAIActivity();
                         lastActivityTime = now;
+                        
+                        // Pouze pro debug - kontrola zda se text skutečně vymaže
+                        setTimeout(() => {
+                            const afterText = activeEditor.document.getText();
+                            debugChannel.appendLine(`📊 Post-Enter verification: ${currentContent.length} → ${afterText.length} chars`);
+                            if (afterText.length < currentContent.length * 0.3) {
+                                debugChannel.appendLine(`✅ CONFIRMED: Message was actually submitted!`);
+                            }
+                        }, 100);
                     }
                 }
             }
@@ -308,7 +312,46 @@ export function initializeEnterKeyDetection(
         return vscode.commands.executeCommand('default:type', args);
     });
 
-    debugChannel.appendLine('✅ ULTIMATE VS Code source-based Copilot Chat detection active (7 advanced methods)');
+    // Method 8: INSTANT Selection Change Pre-Detection
+    // Zachytí změny selection okamžitě při Enter
+    const instantSelectionListener = vscode.window.onDidChangeTextEditorSelection((event) => {
+        const editor = event.textEditor;
+        const now = Date.now();
+        
+        if (editor && (
+            editor.document.uri.scheme === 'vscode-chat-input' ||
+            editor.document.uri.scheme === 'chat-editing-snapshot-text-model' ||
+            editor.document.uri.toString().includes('copilot')
+        )) {
+            const currentText = editor.document.getText();
+            
+            // Instant detection při selection change s obsahem
+            if (currentText.trim().length > 2 && now - lastActivityTime > 50) {
+                // Kontrola zda se jedná o rychlou změnu selection (možná Enter)
+                const selectionCount = event.selections.length;
+                const hasContent = currentText.length > 3;
+                
+                if (hasContent && selectionCount === 1 && recentInputActivity) {
+                    debugChannel.appendLine(`⚡ INSTANT selection change in chat with content - possible Enter!`);
+                    debugChannel.appendLine(`   Content length: ${currentText.length}, Selections: ${selectionCount}`);
+                    
+                    // Velmi krátké čekání na potvrzení
+                    setTimeout(() => {
+                        const verifyText = editor.document.getText();
+                        if (verifyText.length < currentText.length * 0.4) {
+                            debugChannel.appendLine(`🚀 INSTANT CONFIRMED: Selection change led to submit!`);
+                            handleAIActivity();
+                        }
+                    }, 25); // Jen 25ms pro potvrzení
+                    
+                    lastActivityTime = now;
+                }
+            }
+        }
+    });
+
+    debugChannel.appendLine('✅ INSTANT VS Code source-based Copilot Chat detection active (8 advanced methods)');
+    debugChannel.appendLine('   🚀 INSTANT pre-submit detection - triggers IMMEDIATELY on Enter press!');
     debugChannel.appendLine('   Based on real VS Code source code analysis from C:\\_OvěřitCoTamDělá40GB\\vscode-main\\');
     debugChannel.appendLine('   Monitoring: vscode-chat-input, chat-editing-snapshot-text-model, acceptInput patterns');
     
@@ -319,6 +362,7 @@ export function initializeEnterKeyDetection(
         editorChangeListener,
         focusListener,
         keyboardListener,
+        instantSelectionListener,  // New instant detection
         ...commandListeners
     ];
     
