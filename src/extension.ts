@@ -954,11 +954,11 @@ function generateMessageWithRecentPrompts(conversations: {content: string, topic
         return 'AI prompt detected! Please check:\n• Did AI understand your question correctly?\n• If working with HTML, inspect for invisible elements\n• Verify the response quality and accuracy';
     }
     
-    // Format prompts for display with bullet points
+    // Format prompts for display - single line with separators for VS Code notifications
     const promptsList = lastPrompts.map((prompt, index) => {
-        const shortPrompt = prompt.length > 80 ? prompt.substring(0, 80) + '...' : prompt;
-        return `• ${shortPrompt}`;
-    }).join('\n');
+        const shortPrompt = prompt.length > 60 ? prompt.substring(0, 60) + '...' : prompt;
+        return shortPrompt;
+    }).join(' | ');
     
     // Generate context-aware message with recent prompts
     const contextAnalysis = analyzePromptsContext(lastPrompts);
@@ -981,8 +981,8 @@ function generateMessageWithRecentPrompts(conversations: {content: string, topic
                 return i18n.t('ai.smartDefault', conversations[0]?.topic || 'code', promptsList);
         }
     } catch (error) {
-        // Fallback if i18n fails - use simple formatting without code blocks
-        return `AI just responded! Check ${contextAnalysis.focus}:\n\nRecent prompts:\n${promptsList}\n\nCheck:\n${contextAnalysis.checks}`;
+        // Fallback if i18n fails - single line format
+        return `AI just responded! Check ${contextAnalysis.focus} | Recent prompts: ${promptsList} | Check: ${contextAnalysis.checks}`;
     }
 }
 
@@ -993,7 +993,7 @@ function analyzePromptsContext(prompts: string[]): {type: string, focus: string,
         return {
             type: 'debug',
             focus: 'debugging',
-            checks: '• Fixed the actual root cause?\n• No new bugs introduced?\n• Test edge cases'
+            checks: 'Fixed root cause? No new bugs? Test edge cases?'
         };
     }
     
@@ -1001,7 +1001,7 @@ function analyzePromptsContext(prompts: string[]): {type: string, focus: string,
         return {
             type: 'ui',
             focus: 'UI/design',
-            checks: '• Responsive design\n• Accessibility\n• Cross-browser compatibility'
+            checks: 'Responsive design? Accessibility? Cross-browser compatibility?'
         };
     }
     
@@ -1009,7 +1009,7 @@ function analyzePromptsContext(prompts: string[]): {type: string, focus: string,
         return {
             type: 'database',
             focus: 'database',
-            checks: '• Data integrity\n• Performance impact\n• Backup strategy'
+            checks: 'Data integrity? Performance impact? Backup strategy?'
         };
     }
     
@@ -1017,7 +1017,7 @@ function analyzePromptsContext(prompts: string[]): {type: string, focus: string,
         return {
             type: 'api',
             focus: 'API',
-            checks: '• Error handling\n• Security\n• API documentation'
+            checks: 'Error handling? Security? API documentation?'
         };
     }
     
@@ -1025,7 +1025,7 @@ function analyzePromptsContext(prompts: string[]): {type: string, focus: string,
         return {
             type: 'performance',
             focus: 'performance',
-            checks: '• Actual speedup achieved?\n• Memory leaks?\n• Functionality regression?'
+            checks: 'Actual speedup achieved? Memory leaks? Functionality regression?'
         };
     }
     
@@ -1033,14 +1033,14 @@ function analyzePromptsContext(prompts: string[]): {type: string, focus: string,
         return {
             type: 'security',
             focus: 'security',
-            checks: '• Proper encryption\n• Input validation\n• Security best practices'
+            checks: 'Proper encryption? Input validation? Security best practices?'
         };
     }
     
     return {
         type: 'default',
         focus: 'code',
-        checks: '• Meets original requirements?\n• No side effects or breaking changes?\n• Documentation and comments updated?'
+        checks: 'Meets requirements? No breaking changes? Documentation updated?'
     };
 }
 

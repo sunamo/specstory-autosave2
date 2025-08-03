@@ -1,5 +1,13 @@
 # Changelog
 
+## [1.1.23] - 2025-08-03
+
+### Fixed
+- Fixed VS Code notification formatting - changed to single-line format with pipe separators
+- Removed newline characters that VS Code notifications don't support
+- Prompts now displayed as: "prompt1 | prompt2 | prompt3" for better readability
+- Simplified check messages to single-line questions format
+
 ## [1.1.22] - 2025-08-03
 
 ### Fixed
