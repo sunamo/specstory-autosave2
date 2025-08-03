@@ -57,30 +57,31 @@ export function initializeEnterKeyDetection(
         (vscode.commands as any).executeCommand = function(command: string, ...args: any[]) {
             const cmd = command.toLowerCase();
             
-            // First, execute the original command and let it proceed
+            // Execute the original command first
             const result = originalExecuteCommand.apply(this, [command, ...args]);
 
-            // Now, run our detection logic without blocking the command's execution
-            if (cmd.includes('copilot') || cmd.includes('chat') || cmd.includes('github')) {
-                debugChannel.appendLine(`[DEBUG] 🔧 CHAT COMMAND: ${command}`);
+            // Check if it's a command we are interested in
+            if (cmd.includes('acceptinput') || 
+                cmd.includes('send') || 
+                cmd.includes('submit') ||
+                cmd.includes('chat.action.send')) {
                 
-                // Commands that indicate message sending
-                if (cmd.includes('sendmessage') || 
-                    cmd.includes('submit') ||
-                    cmd.includes('send') ||
-                    cmd.includes('chat.action') ||
-                    cmd.includes('acceptinput') ||
-                    cmd === 'workbench.action.chat.acceptinput') { // More specific command
-                    
+                // Use Promise.resolve to handle both sync and async commands
+                Promise.resolve(result).then(() => {
                     debugChannel.appendLine(`[DEBUG] 🎯 MESSAGE SEND COMMAND DETECTED: ${command}`);
                     
                     const now = Date.now();
                     if (now - lastDetectedTime > 500) { // Debounce
                         lastDetectedTime = now;
-                        debugChannel.appendLine('[DEBUG] 🚀 HANDLING AI ACTIVITY!');
+                        debugChannel.appendLine('[DEBUG] 🚀 HANDLING AI ACTIVITY FROM COMMAND HOOK!');
                         handleAIActivity();
                     }
-                }
+                }).catch(err => {
+                    debugChannel.appendLine(`[DEBUG] ⚠️ Error after command execution: ${err}`);
+                });
+            } else if (cmd.includes('copilot') || cmd.includes('chat')) {
+                // Log other relevant commands without triggering the action
+                debugChannel.appendLine(`[DEBUG] 🔧 Other chat-related command: ${command}`);
             }
             
             // Return the original result immediately
