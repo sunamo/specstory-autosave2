@@ -21,17 +21,42 @@ export function initializeEnterKeyDetection(
         
         const uri = editor.document.uri.toString();
         const scheme = editor.document.uri.scheme;
+        const fileName = editor.document.fileName || 'no-filename';
+        const languageId = editor.document.languageId || 'no-language';
         
-        // Debug: Log all editor changes to see what URIs we get
-        debugChannel.appendLine(`[DEBUG] 🔍 Editor changed: scheme="${scheme}", uri="${uri}"`);
+        // Enhanced debug logging for ALL editor changes
+        debugChannel.appendLine(`[DEBUG] 🔍 EDITOR CHANGE FULL INFO:`);
+        debugChannel.appendLine(`[DEBUG] 🔍   - scheme: "${scheme}"`);
+        debugChannel.appendLine(`[DEBUG] 🔍   - uri: "${uri}"`);
+        debugChannel.appendLine(`[DEBUG] 🔍   - fileName: "${fileName}"`);
+        debugChannel.appendLine(`[DEBUG] 🔍   - languageId: "${languageId}"`);
+        debugChannel.appendLine(`[DEBUG] 🔍   - isUntitled: ${editor.document.isUntitled}`);
         
-        // Detect Copilot Chat - expanded detection
+        // Show workspace folder context
+        if (vscode.workspace.workspaceFolders) {
+            debugChannel.appendLine(`[DEBUG] 🔍   - workspaceFolders: ${vscode.workspace.workspaceFolders.map(f => f.name).join(', ')}`);
+        }
+        
+        // Detect Copilot Chat - comprehensive detection
         const isCopilotChat = (
-            (scheme === 'webview-panel' && (uri.includes('copilot') || uri.includes('chat') || uri.includes('github-copilot'))) ||
-            (scheme === 'vscode-interactive') ||
-            (uri.includes('copilot')) ||
-            (uri.includes('chat')) ||
-            (uri.includes('github-copilot'))
+            // Webview panels containing copilot/chat
+            (scheme === 'webview-panel' && (uri.includes('copilot') || uri.includes('chat') || uri.includes('github-copilot') || uri.includes('GitHub.copilot'))) ||
+            
+            // Interactive windows and notebooks
+            (scheme === 'vscode-interactive' || scheme === 'vscode-notebook-cell') ||
+            
+            // Chat views and panels
+            (scheme === 'vscode-chat' || scheme === 'chat') ||
+            
+            // Any URI containing copilot or chat keywords
+            (uri.toLowerCase().includes('copilot') || uri.toLowerCase().includes('chat') || uri.toLowerCase().includes('github.copilot')) ||
+            
+            // Specific VS Code chat schemes
+            (scheme.includes('chat') || scheme.includes('copilot')) ||
+            
+            // Fallback: any scheme that might be chat-related
+            (scheme === 'untitled' && uri.includes('chat')) ||
+            (scheme === 'inmemory' && uri.includes('copilot'))
         );
         
         if (isCopilotChat !== isInCopilotChat) {
@@ -50,54 +75,69 @@ export function initializeEnterKeyDetection(
         }
     });
     
-    // Method 2: Enhanced text change detection - only when in Copilot Chat
+    // Method 2: Enhanced text change detection with better clearing detection
     const textChangeListener = vscode.workspace.onDidChangeTextDocument((event) => {
         const uri = event.document.uri.toString();
         const scheme = event.document.uri.scheme;
         
-        // Debug: Log ALL text changes to see what documents are changing
-        if (!uri.includes('SpecStoryAutoSave')) {
-            debugChannel.appendLine(`[DEBUG] 📄 Text change: scheme="${scheme}", uri="${uri.substring(0, 60)}...", isInCopilot=${isInCopilotChat}`);
+        // Skip our own debug channels early
+        if (uri.includes('SpecStoryAutoSave')) {
+            return;
         }
+        
+        // Debug: Log ALL text changes to see what documents are changing
+        debugChannel.appendLine(`[DEBUG] 📄 TEXT CHANGE: scheme="${scheme}", uri="${uri.substring(0, 60)}...", isInCopilot=${isInCopilotChat}, changes=${event.contentChanges.length}`);
         
         // Only detect when user is in Copilot Chat
         if (!isInCopilotChat) {
             return;
         }
         
-        // Skip our own debug channels
-        if (uri.includes('SpecStoryAutoSave')) {
-            return;
-        }
-        
         // Process ALL documents when user is focused on Copilot - not just webview-panel
         if (event.contentChanges.length > 0) {
             const currentTextContent = event.document.getText();
-            debugChannel.appendLine(`[DEBUG] 📝 Processing text changes in: ${scheme}:${uri.substring(0, 40)}... (changes: ${event.contentChanges.length})`);
+            const previousLength = lastTextContent.length;
+            const currentLength = currentTextContent.length;
+            
+            debugChannel.appendLine(`[DEBUG] 📝 PROCESSING COPILOT TEXT CHANGES:`);
+            debugChannel.appendLine(`[DEBUG] 📝   - Document: ${scheme}:${uri.substring(0, 40)}...`);
+            debugChannel.appendLine(`[DEBUG] 📝   - Changes count: ${event.contentChanges.length}`);
+            debugChannel.appendLine(`[DEBUG] 📝   - Text length: ${previousLength} → ${currentLength} (diff: ${currentLength - previousLength})`);
             
             event.contentChanges.forEach((change, index) => {
                 const newText = change.text;
-                const isTextCleared = (newText.length === 0 && change.rangeLength > 5); // Reduced threshold
-                const isSignificantDecrease = (currentTextContent.length < lastTextContent.length - 3); // Reduced threshold
+                const rangeLength = change.rangeLength;
                 
-                debugChannel.appendLine(`[DEBUG] 📝 Change ${index}: newText="${newText.replace(/\n/g, '\\n')}" (len: ${newText.length}), rangeLength: ${change.rangeLength}`);
-                debugChannel.appendLine(`[DEBUG] 📝 Current text length: ${currentTextContent.length}, last: ${lastTextContent.length}`);
+                // Enhanced clearing detection
+                const isCompleteClearing = (newText.length === 0 && rangeLength > 10); // Complete text removal
+                const isLargeReduction = (currentLength < previousLength * 0.5 && previousLength > 20); // Text reduced by 50%+
+                const isInputClearing = (newText === '' && rangeLength > 3 && currentLength < 5); // Small input cleared
+                const isSentAndCleared = (previousLength > 5 && currentLength === 0); // Any text completely cleared
                 
-                // Simple detection: text was cleared or significantly reduced (message sent)
-                if (isTextCleared || isSignificantDecrease) {
+                debugChannel.appendLine(`[DEBUG] 📝   Change ${index}:`);
+                debugChannel.appendLine(`[DEBUG] 📝     - newText: "${newText.replace(/\n/g, '\\n')}" (len: ${newText.length})`);
+                debugChannel.appendLine(`[DEBUG] 📝     - rangeLength: ${rangeLength}`);
+                debugChannel.appendLine(`[DEBUG] 📝     - isCompleteClearing: ${isCompleteClearing}`);
+                debugChannel.appendLine(`[DEBUG] 📝     - isLargeReduction: ${isLargeReduction}`);
+                debugChannel.appendLine(`[DEBUG] 📝     - isInputClearing: ${isInputClearing}`);
+                debugChannel.appendLine(`[DEBUG] 📝     - isSentAndCleared: ${isSentAndCleared}`);
+                
+                if (isCompleteClearing || isLargeReduction || isInputClearing || isSentAndCleared) {
                     const now = Date.now();
-                    if (now - lastDetectedTime > 800) { // Reduced debounce
+                    if (now - lastDetectedTime > 500) { // Reduced debounce to 500ms
                         lastDetectedTime = now;
-                        debugChannel.appendLine(`[DEBUG] 🚀 ENTER DETECTED! (cleared: ${isTextCleared}, decreased: ${isSignificantDecrease})`);
+                        debugChannel.appendLine(`[DEBUG] 🚀 COPILOT MESSAGE SENT DETECTED!`);
+                        debugChannel.appendLine(`[DEBUG] 🚀   - Detection type: ${isCompleteClearing ? 'CompleteClearing' : isLargeReduction ? 'LargeReduction' : isInputClearing ? 'InputClearing' : 'SentAndCleared'}`);
+                        debugChannel.appendLine(`[DEBUG] 🚀   - Text change: ${previousLength} chars → ${currentLength} chars`);
                         handleAIActivity();
                     } else {
-                        debugChannel.appendLine(`[DEBUG] 🔄 Enter detection ignored (debounce): ${now - lastDetectedTime}ms ago`);
+                        debugChannel.appendLine(`[DEBUG] 🔄 Detection debounced: ${now - lastDetectedTime}ms ago`);
                     }
                 }
                 
-                // Track ALL text changes for debugging
+                // Track ALL text additions for debugging
                 if (newText.length > 0) {
-                    debugChannel.appendLine(`[DEBUG] 📝 Text added: "${newText.substring(0, 20)}..." (total len: ${currentTextContent.length})`);
+                    debugChannel.appendLine(`[DEBUG] 📝   - Text added: "${newText.substring(0, 30)}..." (total now: ${currentLength})`);
                 }
             });
             
@@ -105,10 +145,37 @@ export function initializeEnterKeyDetection(
         }
     });
     
-    debugChannel.appendLine('[DEBUG] 🎹 FOCUS + TEXT CHANGE DETECTION WITH DEBUG ACTIVE');
-    debugChannel.appendLine('[DEBUG] 💡 Focus on Copilot Chat and send a message - it should be detected!');
-    debugChannel.appendLine('[DEBUG] 💡 Watch debug output to see what URIs and text changes occur');
+    debugChannel.appendLine('[DEBUG] 🎹 ENHANCED COPILOT DETECTION ACTIVE');
+    debugChannel.appendLine('[DEBUG] 💡 Open GitHub Copilot Chat and send a message');
+    debugChannel.appendLine('[DEBUG] 💡 Watch debug output for detailed URI and text change analysis');
+    debugChannel.appendLine('[DEBUG] 💡 Looking for text clearing patterns when messages are sent');
     debugChannel.appendLine('[DEBUG] 💡 Backup: Use Ctrl+Shift+A after sending a message');
     
-    return [editorChangeListener, textChangeListener];
+    // Additional monitoring: visible editors (Copilot might be visible but not active)
+    const visibleEditorsMonitor = vscode.window.onDidChangeVisibleTextEditors((editors) => {
+        debugChannel.appendLine(`[DEBUG] 👀 VISIBLE EDITORS CHANGED (${editors.length} total):`);
+        editors.forEach((editor, index) => {
+            const uri = editor.document.uri.toString();
+            const scheme = editor.document.uri.scheme;
+            debugChannel.appendLine(`[DEBUG] 👀   Editor ${index}: scheme="${scheme}", uri="${uri.substring(0, 60)}..."`);
+            
+            // Check if any visible editor is Copilot Chat
+            const isVisibleCopilotChat = (
+                (scheme === 'webview-panel' && (uri.includes('copilot') || uri.includes('chat') || uri.includes('github-copilot') || uri.includes('GitHub.copilot'))) ||
+                (scheme === 'vscode-interactive' || scheme === 'vscode-notebook-cell') ||
+                (scheme === 'vscode-chat' || scheme === 'chat') ||
+                (uri.toLowerCase().includes('copilot') || uri.toLowerCase().includes('chat') || uri.toLowerCase().includes('github.copilot'))
+            );
+            
+            if (isVisibleCopilotChat) {
+                debugChannel.appendLine(`[DEBUG] 👀   ✅ FOUND VISIBLE COPILOT CHAT: ${scheme}:${uri.substring(0, 60)}...`);
+                if (!isInCopilotChat) {
+                    debugChannel.appendLine(`[DEBUG] 👀   📝 Setting Copilot detection ON due to visible chat`);
+                    isInCopilotChat = true;
+                }
+            }
+        });
+    });
+    
+    return [editorChangeListener, textChangeListener, visibleEditorsMonitor];
 }
