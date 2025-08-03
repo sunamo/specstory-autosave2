@@ -51,7 +51,7 @@ export async function showAINotificationImmediately(
         
         // Add notification first
         debugChannel.appendLine('[DEBUG] 📞 CALLING aiActivityProvider.addNotification()...');
-        await aiActivityProvider.addNotification(message);
+        aiActivityProvider.addNotification(message);
         debugChannel.appendLine(`[DEBUG] ✅ Activity provider notification added in ${Date.now() - startTime}ms`);
         
         // Show brief VS Code notification as well for immediate feedback
