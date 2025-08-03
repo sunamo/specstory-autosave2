@@ -2,13 +2,14 @@ import * as vscode from 'vscode';
 
 let lastDetectedTime = 0;
 let isInCopilotChat = false;
-let lastTextLength = 0;
+let lastTextContent = '';
+let textChangeTimer: NodeJS.Timeout | undefined;
 
 export function initializeEnterKeyDetection(
     handleAIActivity: () => void,
     debugChannel: vscode.OutputChannel
 ): vscode.Disposable[] {
-    debugChannel.appendLine('[DEBUG] 🚀 INITIALIZING SIMPLE COPILOT ENTER DETECTION');
+    debugChannel.appendLine('[DEBUG] 🚀 INITIALIZING FOCUS + TEXT CHANGE DETECTION');
     
     // Method 1: Track when user is in Copilot Chat
     const editorChangeListener = vscode.window.onDidChangeActiveTextEditor((editor) => {
@@ -27,10 +28,14 @@ export function initializeEnterKeyDetection(
         if (isCopilotChat !== isInCopilotChat) {
             isInCopilotChat = isCopilotChat;
             if (isInCopilotChat) {
-                debugChannel.appendLine('[DEBUG] 🎯 USER ENTERED COPILOT CHAT - Detection active');
-                lastTextLength = 0; // Reset text tracking
+                debugChannel.appendLine('[DEBUG] 🎯 USER FOCUSED ON COPILOT CHAT - Detection active');
+                lastTextContent = ''; // Reset text tracking
             } else {
                 debugChannel.appendLine('[DEBUG] 📤 USER LEFT COPILOT CHAT - Detection paused');
+                if (textChangeTimer) {
+                    clearTimeout(textChangeTimer);
+                    textChangeTimer = undefined;
+                }
             }
         }
     });
@@ -58,7 +63,7 @@ export function initializeEnterKeyDetection(
                 event.contentChanges.forEach(change => {
                     const newText = change.text;
                     const isTextCleared = (newText.length === 0 && change.rangeLength > 10);
-                    const isSignificantDecrease = (currentTextLength < lastTextLength - 5);
+                    const isSignificantDecrease = (currentTextLength < lastTextContent.length - 5);
                     
                     // Simple detection: text was cleared or significantly reduced (message sent)
                     if (isTextCleared || isSignificantDecrease) {
@@ -76,13 +81,13 @@ export function initializeEnterKeyDetection(
                     }
                 });
                 
-                lastTextLength = currentTextLength;
+                lastTextContent = event.document.getText();
             }
         }
     });
     
-    debugChannel.appendLine('[DEBUG] 🎹 SIMPLE COPILOT ENTER DETECTION ACTIVE');
-    debugChannel.appendLine('[DEBUG] 💡 Will detect when you send messages in Copilot Chat');
+    debugChannel.appendLine('[DEBUG] 🎹 FOCUS + TEXT CHANGE DETECTION ACTIVE');
+    debugChannel.appendLine('[DEBUG] 💡 Focus on Copilot Chat and send a message - it should be detected!');
     debugChannel.appendLine('[DEBUG] 💡 Backup: Use Ctrl+Shift+A after sending a message');
     
     return [editorChangeListener, textChangeListener];
