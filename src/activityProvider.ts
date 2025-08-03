@@ -205,9 +205,8 @@ export class AIActivityProvider implements vscode.WebviewViewProvider {
                         return timestampB.getTime() - timestampA.getTime(); // Newest first
                     });
                     
-                    const latestFile = sortedFiles[0][0];
-                    this.writeDebugLog(`Found ${mdFiles.length} SpecStory files, latest: ${latestFile}`);
-                    logDebug(`Found ${mdFiles.length} SpecStory files, latest: ${latestFile}`);
+                    this.writeDebugLog(`Found ${mdFiles.length} SpecStory files, processing all files`);
+                    logDebug(`Found ${mdFiles.length} SpecStory files, processing all files`);
                     
                     // Log all files for debugging
                     sortedFiles.forEach((file, index) => {
@@ -215,18 +214,57 @@ export class AIActivityProvider implements vscode.WebviewViewProvider {
                         this.writeDebugLog(`File #${index + 1}: ${file[0]} (${timestamp.toISOString()})`);
                     });
                     
-                    this.writeDebugLog(`Reading latest file: ${latestFile}`);
-                    logDebug(`Reading latest file: ${latestFile}`);
+                    // Process ALL files, not just the latest one
+                    const allUserPrompts: string[] = [];
                     
-                    const fileUri = vscode.Uri.joinPath(historyUri, latestFile);
-                    const fileContent = await vscode.workspace.fs.readFile(fileUri);
-                    const content = Buffer.from(fileContent).toString('utf8');
+                    for (const [fileName] of sortedFiles) {
+                        this.writeDebugLog(`Reading file: ${fileName}`);
+                        logDebug(`Reading file: ${fileName}`);
+                        
+                        try {
+                            const fileUri = vscode.Uri.joinPath(historyUri, fileName);
+                            const fileContent = await vscode.workspace.fs.readFile(fileUri);
+                            const content = Buffer.from(fileContent).toString('utf8');
+                            
+                            this.writeDebugLog(`File ${fileName} read successful, content length: ${content.length}`);
+                            logDebug(`File ${fileName} read successful, content length: ${content.length}`);
+                            
+                            // Extract prompts from this file
+                            const filePrompts = this.extractPromptsFromContent(content, fileName);
+                            allUserPrompts.push(...filePrompts);
+                            
+                            this.writeDebugLog(`Extracted ${filePrompts.length} prompts from ${fileName}, total so far: ${allUserPrompts.length}`);
+                        } catch (fileError) {
+                            this.writeDebugLog(`Failed to read file ${fileName}: ${fileError}`);
+                            logError(`Failed to read file ${fileName}: ${fileError}`);
+                        }
+                    }
                     
-                    this.writeDebugLog(`File read successful, content length: ${content.length}`);
-                    logDebug(`File read successful, content length: ${content.length}`);
+                    // Transform all collected prompts to display format
+                    this._prompts = allUserPrompts.map((prompt, index) => {
+                        const shortPrompt = prompt.length > 120 ? prompt.substring(0, 120) + '...' : prompt;
+                        const displayNumber = `#${index + 1}`;
+
+                        return {
+                            timestamp: displayNumber,
+                            shortPrompt: shortPrompt,
+                            fullContent: prompt
+                        };
+                    });
+
+                    // Limit to max configured prompts
+                    const config = vscode.workspace.getConfiguration('specstoryautosave');
+                    const maxPrompts = config.get<number>('activityBarMaxPrompts', 10);
                     
-                    // Process content
-                    this.processSpecStoryContent(content, latestFile);
+                    if (this._prompts.length > maxPrompts) {
+                        this._prompts = this._prompts.slice(0, maxPrompts);
+                    }
+
+                    this.writeDebugLog(`Successfully processed ${this._prompts.length} prompts from ${sortedFiles.length} files (newest first)`);
+                    logInfo(`Successfully processed ${this._prompts.length} prompts from ${sortedFiles.length} files (newest first)`);
+                    
+                    // Force immediate update
+                    this._updateView();
                     return;
                 }
             } catch (directError) {
@@ -240,22 +278,20 @@ export class AIActivityProvider implements vscode.WebviewViewProvider {
         }
     }
 
-    private processSpecStoryContent(content: string, topic: string) {
-        // Create debug log file
-        this.writeDebugLog(`=== PROCESSING SPECSTORY CONTENT ===`);
-        this.writeDebugLog(`Topic: ${topic}`);
+    private extractPromptsFromContent(content: string, fileName: string): string[] {
+        this.writeDebugLog(`=== EXTRACTING PROMPTS FROM ${fileName} ===`);
         this.writeDebugLog(`Content length: ${content.length}`);
         
         const lines = content.split('\n').filter(line => line.trim().length > 0);
         this.writeDebugLog(`Total non-empty lines: ${lines.length}`);
         
-        // Log LAST 20 lines for analysis (newest prompts are at the end!)
-        this.writeDebugLog(`=== LAST 20 LINES (NEWEST PROMPTS) ===`);
-        lines.slice(-20).forEach((line, index) => {
-            this.writeDebugLog(`Line ${lines.length - 20 + index + 1}: "${line}"`);
+        // Log LAST 10 lines for analysis (newest prompts are at the end!)
+        this.writeDebugLog(`=== LAST 10 LINES (NEWEST PROMPTS) from ${fileName} ===`);
+        lines.slice(-10).forEach((line, index) => {
+            this.writeDebugLog(`Line ${lines.length - 10 + index + 1}: "${line}"`);
         });
         
-        const userPrompts = [];
+        const userPrompts: string[] = [];
         
         // PROCESS LINES IN REVERSE ORDER - newest prompts are at the end!
         for (let i = lines.length - 1; i >= 0; i--) {
@@ -342,7 +378,7 @@ export class AIActivityProvider implements vscode.WebviewViewProvider {
                 );
             
             if (isRealUserRequest) {
-                this.writeDebugLog(`*** FOUND USER REQUEST at line ${i + 1}: "${line}"`);
+                this.writeDebugLog(`*** FOUND USER REQUEST in ${fileName} at line ${i + 1}: "${line}"`);
                 
                 // Clean up prompt text
                 let promptText = line
@@ -357,42 +393,13 @@ export class AIActivityProvider implements vscode.WebviewViewProvider {
                 
                 if (promptText.length > 5) {
                     userPrompts.push(promptText);
-                    this.writeDebugLog(`*** ADDED USER REQUEST #${userPrompts.length}: "${promptText.substring(0, 100)}"`);
+                    this.writeDebugLog(`*** ADDED USER REQUEST #${userPrompts.length} from ${fileName}: "${promptText.substring(0, 100)}"`);
                 }
             }
         }
 
-        this.writeDebugLog(`*** FINAL: Found ${userPrompts.length} user requests (processed in reverse order)`);
-
-        // Transform user prompts to display format with SIMPLE NUMBERING
-        // Since we processed in reverse order, userPrompts[0] is now the newest
-        this._prompts = userPrompts.map((prompt, index) => {
-            const shortPrompt = prompt.length > 120 ? prompt.substring(0, 120) + '...' : prompt;
-            
-            // Use simple numbering - index 0 is newest, so start from userPrompts.length
-            const displayNumber = `#${index + 1}`;
-
-            return {
-                timestamp: displayNumber,
-                shortPrompt: shortPrompt,
-                fullContent: prompt
-            };
-        });
-
-        // Limit to max configured prompts
-        const config = vscode.workspace.getConfiguration('specstoryautosave');
-        const maxPrompts = config.get<number>('activityBarMaxPrompts', 10);
-        
-        if (this._prompts.length > maxPrompts) {
-            this._prompts = this._prompts.slice(0, maxPrompts);
-        }
-
-        this.writeDebugLog(`Successfully processed ${this._prompts.length} prompts for Activity Bar (newest first)`);
-        
-        // Force immediate update
-        this._updateView();
-        
-        logInfo(`Successfully processed ${this._prompts.length} prompts for Activity Bar (newest first)`);
+        this.writeDebugLog(`*** ${fileName}: Found ${userPrompts.length} user requests (processed in reverse order)`);
+        return userPrompts;
     }
 
     private writeDebugLog(message: string) {
