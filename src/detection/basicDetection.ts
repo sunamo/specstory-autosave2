@@ -188,10 +188,8 @@ export function initializeBasicDetection(
             (vscode.commands as any).executeCommand = async function(command: string, ...args: any[]) {
                 const cmd = command.toLowerCase();
                 
-                // DEBUG: Log ALL commands for troubleshooting
-                if (Math.random() < 0.1) { // Increased to 10% chance to catch more commands
-                    logDebug(`🔍 COMMAND EXECUTED: ${command}`);
-                }
+                // DEBUG: Log ALL commands for troubleshooting - TEMPORARY 100% LOGGING
+                logDebug(`🔍 COMMAND EXECUTED: ${command}`);
                 
                 // Expanded command detection for better coverage - INCLUDE ENTER/SEND COMMANDS
                 const copilotCommands = [
@@ -209,10 +207,18 @@ export function initializeBasicDetection(
                     'workbench.action.chat.submit',  // NEW: Alternative submit
                     'github.copilot-chat.submit',  // NEW: Copilot Chat submit
                     'editor.action.inlineSuggest.trigger',  // NEW: Inline suggestions
-                    'workbench.action.chat.send'  // NEW: Generic chat send
+                    'workbench.action.chat.send',  // NEW: Generic chat send
+                    'acceptSelectedSuggestion',  // NEW: Accept suggestion
+                    'type',  // NEW: Generic typing command
+                    'cursorMove',  // NEW: Cursor movement
+                    'editor.action.triggerSuggest'  // NEW: Trigger suggestions
                 ];
                 
-                const isCopilotCommand = copilotCommands.some(pattern => cmd.includes(pattern));
+                // Also check for ANY command containing these keywords
+                const keywordPatterns = ['chat', 'copilot', 'submit', 'send', 'accept', 'suggest'];
+                const hasKeyword = keywordPatterns.some(keyword => cmd.includes(keyword));
+                
+                const isCopilotCommand = copilotCommands.some(pattern => cmd.includes(pattern)) || hasKeyword;
                 
                 if (isCopilotCommand) {
                     logDebug(`🔧 COPILOT COMMAND DETECTED: ${command}`);
