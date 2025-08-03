@@ -62,8 +62,16 @@ export async function showAINotificationImmediately(
         
         // Focus the activity bar view with retry mechanism
         try {
+            // Double focus to ensure it works
             await vscode.commands.executeCommand('workbench.view.extension.specstoryAI');
-            debugChannel.appendLine(`[DEBUG] Activity bar focused in ${Date.now() - startTime}ms total`);
+            setTimeout(async () => {
+                try {
+                    await vscode.commands.executeCommand('workbench.view.extension.specstoryAI');
+                    debugChannel.appendLine(`[DEBUG] Activity bar double-focused in ${Date.now() - startTime}ms total`);
+                } catch (retryError) {
+                    debugChannel.appendLine(`[DEBUG] Activity bar retry focus failed: ${retryError}`);
+                }
+            }, 100);
         } catch (error) {
             debugChannel.appendLine(`[DEBUG] Failed to focus activity bar: ${error}`);
         }

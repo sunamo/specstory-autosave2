@@ -175,10 +175,12 @@ export class AIActivityProvider implements vscode.WebviewViewProvider {
         const duration = Date.now() - startTime;
         this.writeDebugLog(`=== NOTIFICATION ADDED IN ${duration}ms ===`);
         
-        // Also refresh SpecStory data in background (don't wait for it)
-        this.loadPromptsFromSpecStory().catch(error => {
-            this.writeDebugLog(`Background SpecStory refresh failed: ${error}`);
-        });
+        // Delay SpecStory refresh to allow user to see the temporary entry first
+        setTimeout(() => {
+            this.loadPromptsFromSpecStory().catch(error => {
+                this.writeDebugLog(`Delayed SpecStory refresh failed: ${error}`);
+            });
+        }, 2000); // 2 second delay before background refresh
     }
 
     private async refreshPrompts() {

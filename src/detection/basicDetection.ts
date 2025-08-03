@@ -52,7 +52,7 @@ export function initializeBasicDetection(
     
     // ADD GLOBAL DEBOUNCE MECHANISM to prevent duplicate detections
     let lastGlobalDetection = 0;
-    const DEBOUNCE_MS = 1000; // 1 second debounce between detections
+    const DEBOUNCE_MS = 200; // Reduced from 1000ms to 200ms for faster response
     
     const debouncedHandleAIActivity = () => {
         const now = Date.now();
