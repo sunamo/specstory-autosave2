@@ -184,9 +184,24 @@ export class AIActivityProvider implements vscode.WebviewViewProvider {
                     logDebug(`Found ${mdFiles.length} .md files`);
                     
                     if (mdFiles.length > 0) {
-                        // Try to read the latest file manually
-                        mdFiles.sort((a, b) => b[0].localeCompare(a[0]));
-                        const latestFile = mdFiles[0][0];
+                        // Sort files by SpecStory timestamp format (YYYY-MM-DD_HH-MMZ-description.md)
+                        // Extract timestamp for proper chronological sorting
+                        const sortedFiles = mdFiles.sort((a, b) => {
+                            const timestampA = this.extractTimestampFromFileName(a[0]);
+                            const timestampB = this.extractTimestampFromFileName(b[0]);
+                            return timestampB.getTime() - timestampA.getTime(); // Newest first
+                        });
+                        
+                        const latestFile = sortedFiles[0][0];
+                        this.writeDebugLog(`Found ${mdFiles.length} SpecStory files, latest: ${latestFile}`);
+                        logDebug(`Found ${mdFiles.length} SpecStory files, latest: ${latestFile}`);
+                        
+                        // Log all files for debugging
+                        sortedFiles.forEach((file, index) => {
+                            const timestamp = this.extractTimestampFromFileName(file[0]);
+                            this.writeDebugLog(`File #${index + 1}: ${file[0]} (${timestamp.toISOString()})`);
+                        });
+                        
                         this.writeDebugLog(`Attempting to read latest file manually: ${latestFile}`);
                         logDebug(`Attempting to read latest file manually: ${latestFile}`);
                         
@@ -432,6 +447,19 @@ export class AIActivityProvider implements vscode.WebviewViewProvider {
         
         // Fallback to current time if parsing fails
         return new Date();
+    }
+
+    private extractTimestampFromFileName(fileName: string): Date {
+        // Extract timestamp from SpecStory filename like "2025-08-03_07-59Z-description.md"
+        const match = fileName.match(/(\d{4}-\d{2}-\d{2})_(\d{2})-(\d{2})Z/);
+        if (match) {
+            const [, date, hour, minute] = match;
+            const [year, month, day] = date.split('-').map(Number);
+            return new Date(year, month - 1, day, Number(hour), Number(minute), 0);
+        }
+        
+        // Fallback to epoch time if parsing fails (will be sorted last)
+        return new Date(0);
     }
 
     public clearNotifications() {
