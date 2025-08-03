@@ -8,6 +8,7 @@ import { initializeAggressiveDetection } from './detection/aggressiveDetection';
 import { showAINotificationImmediately } from './notifications/notificationManager';
 import { handleAIActivity, generateSmartNotificationMessage, updateStatusBar } from './utils/aiActivityHandler';
 import { initializeLogger, logDebug, logInfo, logError, logAIActivity, logExport } from './utils/logger';
+import { findSpecStoryHistoryPath } from './specstory/historyReader';
 
 // Global variables
 let outputChannel: vscode.OutputChannel;
@@ -433,18 +434,18 @@ function registerCommands(context: vscode.ExtensionContext) {
         logDebug('🔍 MANUAL TEST: User requested SpecStory history detection test');
         
         try {
-            const config = vscode.workspace.getConfiguration('specstoryautosave');
-            const historyPath = config.get<string>('specstoryHistoryPath', '');
+            // Try to find SpecStory history automatically
+            const specstoryPath = await findSpecStoryHistoryPath();
             
-            if (!historyPath) {
-                const message = 'SpecStory history path not configured. Please set specstoryautosave.specstoryHistoryPath in settings.';
+            if (!specstoryPath) {
+                const message = 'SpecStory history folder not found. Make sure .specstory/history exists in your workspace.';
                 logError(message);
                 vscode.window.showErrorMessage(message);
                 return;
             }
 
-            logInfo(`Checking history path: ${historyPath}`);
-            logDebug(`📁 History path configured: ${historyPath}`);
+            logInfo(`Found SpecStory history at: ${specstoryPath}`);
+            logDebug(`📁 History path detected: ${specstoryPath}`);
             
             // Trigger AI activity simulation for testing
             logDebug('🎯 Simulating AI activity from history detection...');

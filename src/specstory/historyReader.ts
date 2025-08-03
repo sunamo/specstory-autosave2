@@ -6,15 +6,7 @@ import { logDebug, logInfo } from '../utils/logger';
  */
 
 export async function findSpecStoryHistoryPath(): Promise<string | null> {
-    const config = vscode.workspace.getConfiguration('specstoryautosave');
-    const customPath = config.get<string>('specstoryHistoryPath', '');
-    
-    if (customPath) {
-        logDebug(`Using custom SpecStory path: ${customPath}`);
-        return customPath;
-    }
-    
-    // Auto-detect SpecStory folder in workspace
+    // Always use auto-detection - search for .specstory/history in workspace
     const workspaceFolders = vscode.workspace.workspaceFolders;
     if (!workspaceFolders) {
         logDebug('No workspace folders found for SpecStory detection');

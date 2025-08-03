@@ -2,7 +2,7 @@
   "name": "specstory-autosave",
   "displayName": "SpecStory AutoSave + AI Copilot Prompt Detection",
   "description": "Auto-exports GitHub Copilot Chat to SpecStory documentation + instant AI prompt detection with quality verification notifications",
-  	"version": "1.1.61",
+  	"version": "1.1.62",
   "publisher": "sunamocz",
   "icon": "icon.png",
   "repository": {
@@ -144,11 +144,6 @@
           "description": "Custom message to display in AI activity notifications (only applied when Activity Bar display is not available)",
           "when": "config.specstoryautosave.notificationDisplayType != 'activitybar'"
         },
-        "specstoryautosave.specstoryHistoryPath": {
-          "type": "string",
-          "default": "",
-          "description": "Path to SpecStory history folder (e.g., project-root\\.specstory\\history\\). Leave empty for auto-detection which will search common project structures."
-        },
         "specstoryautosave.aiNotificationFrequency": {
           "type": "number",
           "default": 1,
@@ -214,16 +209,6 @@
           "default": false,
           "description": "Enable detection based on rapid typing patterns typical for AI code generation (experimental - may cause false positives)"
         },
-        "specstoryautosave.enableDebugLogs": {
-          "type": "boolean",
-          "default": false,
-          "description": "Enable detailed debug logging (disable for production builds)"
-        },
-        "specstoryautosave.showOnlyCopilotLogs": {
-          "type": "boolean",
-          "default": true,
-          "description": "Show only Copilot/AI related logs in the output channel (filters out other extension logs)"
-        },
         "specstoryautosave.notificationDisplayType": {
           "type": "string",
           "enum": ["off", "notification", "panel", "activitybar"],
@@ -242,6 +227,17 @@
           "minimum": 1,
           "maximum": 50,
           "description": "Maximum number of AI prompts to show in Activity Bar view history (1-50)"
+        },
+        "specstoryautosave.enableDebugLogs": {
+          "type": "boolean",
+          "default": false,
+          "description": "Enable detailed debug logging (disable for production builds)"
+        },
+        "specstoryautosave.showOnlyCopilotLogs": {
+          "type": "boolean",
+          "default": false,
+          "description": "Show only Copilot/AI related logs in the output channel (filters out other extension logs)",
+          "when": "false"
         }
       }
     }
