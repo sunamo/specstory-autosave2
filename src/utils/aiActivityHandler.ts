@@ -44,43 +44,22 @@ export function handleAIActivity(
 
 export async function generateSmartNotificationMessage(debugChannel: vscode.OutputChannel): Promise<string> {
     const config = vscode.workspace.getConfiguration('specstoryautosave');
-    const enableSmartNotifications = config.get<boolean>('enableSmartNotifications', true);
     const customMessage = config.get<string>('aiNotificationMessage', '');
-    const defaultMessage = 'AI prompt detected! Please check:\n• Did AI understand your question correctly?\n• If working with HTML, inspect for invisible elements\n• Verify the response quality and accuracy';
+    const defaultUserMessage = 'AI prompt detected! Please check:\n• Did AI understand your question correctly?\n• If working with HTML, inspect for invisible elements\n• Verify the response quality and accuracy';
     
-    // If user has non-empty custom message or smart notifications are disabled, use their message or default
-    if (!enableSmartNotifications || (customMessage && customMessage.trim() !== '')) {
-        return customMessage || defaultMessage;
-    }
+    // Always start with "New AI prompt detected!" on first line
+    const firstLine = 'New AI prompt detected!';
     
-    try {
-        // Add small delay to allow SpecStory file to be written
-        debugChannel.appendLine('[DEBUG] Waiting 2 seconds for SpecStory file to be updated...');
-        await new Promise(resolve => setTimeout(resolve, 2000));
-        
-        // Try to find SpecStory history folder
-        const specstoryPath = await findSpecStoryHistoryPath();
-        if (!specstoryPath) {
-            debugChannel.appendLine('[DEBUG] No SpecStory history found, using default message');
-            return defaultMessage;
-        }
-        
-        // Read latest 10 SpecStory conversations to get more prompts
-        const recentConversations = await readRecentSpecStoryConversations(specstoryPath, 10);
-        if (!recentConversations || recentConversations.length === 0) {
-            debugChannel.appendLine('[DEBUG] No recent conversations found, using default message');
-            return defaultMessage;
-        }
-        
-        // Generate message with recent prompts
-        const smartMessage = generateMessageWithRecentPrompts(recentConversations, debugChannel);
-        debugChannel.appendLine(`[DEBUG] Generated smart message based on ${recentConversations.length} recent conversations`);
-        return smartMessage;
-        
-    } catch (error) {
-        debugChannel.appendLine(`[DEBUG] Error generating smart message: ${error}`);
-        return defaultMessage;
-    }
+    // Use custom message from settings or default as second part
+    const userMessage = customMessage || defaultUserMessage;
+    
+    // Combine: first line + user's message
+    const finalMessage = firstLine + '\n\n' + userMessage;
+    
+    debugChannel.appendLine(`[DEBUG] Generated notification message with first line: "${firstLine}"`);
+    debugChannel.appendLine(`[DEBUG] User message from settings: "${userMessage.substring(0, 100)}..."`);
+    
+    return finalMessage;
 }
 
 export function updateStatusBar(statusBarItem: vscode.StatusBarItem, aiPromptCounter: { value: number }) {

@@ -130,8 +130,43 @@ export class AIActivityProvider implements vscode.WebviewViewProvider {
     }
 
     public async addNotification(message: string) {
-        await this.loadPromptsFromSpecStory();
+        this.writeDebugLog(`=== ADDING NEW NOTIFICATION ===`);
+        this.writeDebugLog(`Message: ${message}`);
+        logDebug(`Adding new AI notification: ${message.substring(0, 100)}...`);
+        
+        // Generate timestamp for the new prompt
+        const now = new Date();
+        const timestamp = `#${this._prompts.length + 1} - ${now.toLocaleTimeString()}`;
+        
+        // Create short prompt (first line only, max 80 chars)
+        const shortPrompt = message.split('\n')[0].substring(0, 80) + (message.length > 80 ? '...' : '');
+        
+        // Add new notification to the beginning of the array
+        const newPrompt = {
+            timestamp: timestamp,
+            shortPrompt: shortPrompt,
+            fullContent: message
+        };
+        
+        this._prompts.unshift(newPrompt);
+        this.writeDebugLog(`Added new prompt: ${shortPrompt}`);
+        
+        // Apply max prompts limit
+        const config = vscode.workspace.getConfiguration('specstoryautosave');
+        const maxPrompts = config.get<number>('activityBarMaxPrompts', 10);
+        
+        if (this._prompts.length > maxPrompts) {
+            this._prompts = this._prompts.slice(0, maxPrompts);
+            this.writeDebugLog(`Trimmed to max ${maxPrompts} prompts`);
+        }
+        
+        // Update the view immediately
         this._updateView();
+        
+        // Also refresh SpecStory data in background (don't wait for it)
+        this.loadPromptsFromSpecStory().catch(error => {
+            this.writeDebugLog(`Background SpecStory refresh failed: ${error}`);
+        });
     }
 
     private async refreshPrompts() {
@@ -245,9 +280,9 @@ export class AIActivityProvider implements vscode.WebviewViewProvider {
                     }
                     
                     // Transform all collected prompts to display format
-                    this._prompts = allUserPrompts.map((prompt, index) => {
+                    const specstoryPrompts = allUserPrompts.map((prompt, index) => {
                         const shortPrompt = prompt.length > 120 ? prompt.substring(0, 120) + '...' : prompt;
-                        const displayNumber = `#${index + 1}`;
+                        const displayNumber = `#${index + 1} (SpecStory)`;
 
                         return {
                             timestamp: displayNumber,
@@ -255,6 +290,12 @@ export class AIActivityProvider implements vscode.WebviewViewProvider {
                             fullContent: prompt
                         };
                     });
+
+                    // Separate current notifikace (non-SpecStory) from SpecStory prompts
+                    const currentNotifications = this._prompts.filter(p => !p.timestamp.includes('(SpecStory)'));
+                    
+                    // Combine: current notifications first, then SpecStory prompts
+                    this._prompts = [...currentNotifications, ...specstoryPrompts];
 
                     // Limit to max configured prompts
                     const config = vscode.workspace.getConfiguration('specstoryautosave');
@@ -264,8 +305,8 @@ export class AIActivityProvider implements vscode.WebviewViewProvider {
                         this._prompts = this._prompts.slice(0, maxPrompts);
                     }
 
-                    this.writeDebugLog(`Successfully processed ${this._prompts.length} prompts from ${sortedFiles.length} files (newest first)`);
-                    logInfo(`Successfully processed ${this._prompts.length} prompts from ${sortedFiles.length} files (newest first)`);
+                    this.writeDebugLog(`Successfully processed ${specstoryPrompts.length} SpecStory prompts + ${currentNotifications.length} current notifications from ${sortedFiles.length} files`);
+                    logInfo(`Successfully processed ${specstoryPrompts.length} SpecStory prompts + ${currentNotifications.length} current notifications from ${sortedFiles.length} files`);
                     
                     // Force immediate update
                     this._updateView();

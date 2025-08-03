@@ -2,7 +2,7 @@
   "name": "specstory-autosave",
   "displayName": "SpecStory AutoSave + AI Copilot Prompt Detection",
   "description": "Auto-exports GitHub Copilot Chat to SpecStory documentation + instant AI prompt detection with quality verification notifications",
-  	"version": "1.1.63",
+  	"version": "1.1.64",
   "publisher": "sunamocz",
   "icon": "icon.png",
   "repository": {
@@ -133,11 +133,6 @@
     "configuration": {
       "title": "SpecStoryAutoSave",
       "properties": {
-        "specstoryautosave.enableAICheckNotifications": {
-          "type": "boolean",
-          "default": true,
-          "description": "Show notifications to check AI results after each prompt"
-        },
         "specstoryautosave.aiNotificationMessage": {
           "type": "string",
           "default": "AI prompt detected! Please check:\n• Did AI understand your question correctly?\n• If working with HTML, inspect for invisible elements\n• Verify the response quality and accuracy",
@@ -149,7 +144,7 @@
           "default": 1,
           "minimum": 1,
           "maximum": 100,
-          "description": "Show AI notification every Nth prompt - 1 = every prompt, 2 = every 2nd prompt, etc. (only applied when Activity Bar display is not available)",
+          "description": "Show AI notification every Nth prompt - 1 = every prompt, 2 = every 2nd prompt, etc. (only applied when Activity Bar display is not selected)",
           "when": "config.specstoryautosave.notificationDisplayType != 'activitybar'"
         },
         "specstoryautosave.enableDebugLogs": {
