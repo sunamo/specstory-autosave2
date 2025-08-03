@@ -165,86 +165,58 @@ export class AIActivityProvider implements vscode.WebviewViewProvider {
             this.writeDebugLog(`Using SpecStory path: ${specstoryPath}`);
             logInfo(`Using SpecStory path: ${specstoryPath}`);
 
-            // Try to read conversations
-            const conversations = await readRecentSpecStoryConversations(specstoryPath, 1);
+            // ALWAYS use manual file listing with proper chronological sorting
+            // Skip the potentially buggy readRecentSpecStoryConversations
+            this.writeDebugLog('Using direct file scanning with chronological sorting');
+            logDebug('Using direct file scanning with chronological sorting');
             
-            if (!conversations || conversations.length === 0) {
-                this.writeDebugLog('No conversations loaded from SpecStory');
-                logError('No conversations loaded from SpecStory');
+            try {
+                const historyUri = vscode.Uri.file(specstoryPath);
+                const files = await vscode.workspace.fs.readDirectory(historyUri);
+                this.writeDebugLog(`Manual directory listing found ${files.length} files`);
+                logDebug(`Manual directory listing found ${files.length} files`);
                 
-                // Try manual file listing
-                try {
-                    const historyUri = vscode.Uri.file(specstoryPath);
-                    const files = await vscode.workspace.fs.readDirectory(historyUri);
-                    this.writeDebugLog(`Manual directory listing found ${files.length} files`);
-                    logDebug(`Manual directory listing found ${files.length} files`);
+                const mdFiles = files.filter(([name, type]) => name.endsWith('.md') && type === vscode.FileType.File);
+                this.writeDebugLog(`Found ${mdFiles.length} .md files`);
+                logDebug(`Found ${mdFiles.length} .md files`);
+                
+                if (mdFiles.length > 0) {
+                    // Sort files by SpecStory timestamp format (YYYY-MM-DD_HH-MMZ-description.md)
+                    // Extract timestamp for proper chronological sorting
+                    const sortedFiles = mdFiles.sort((a, b) => {
+                        const timestampA = this.extractTimestampFromFileName(a[0]);
+                        const timestampB = this.extractTimestampFromFileName(b[0]);
+                        return timestampB.getTime() - timestampA.getTime(); // Newest first
+                    });
                     
-                    const mdFiles = files.filter(([name, type]) => name.endsWith('.md') && type === vscode.FileType.File);
-                    this.writeDebugLog(`Found ${mdFiles.length} .md files`);
-                    logDebug(`Found ${mdFiles.length} .md files`);
+                    const latestFile = sortedFiles[0][0];
+                    this.writeDebugLog(`Found ${mdFiles.length} SpecStory files, latest: ${latestFile}`);
+                    logDebug(`Found ${mdFiles.length} SpecStory files, latest: ${latestFile}`);
                     
-                    if (mdFiles.length > 0) {
-                        // Sort files by SpecStory timestamp format (YYYY-MM-DD_HH-MMZ-description.md)
-                        // Extract timestamp for proper chronological sorting
-                        const sortedFiles = mdFiles.sort((a, b) => {
-                            const timestampA = this.extractTimestampFromFileName(a[0]);
-                            const timestampB = this.extractTimestampFromFileName(b[0]);
-                            return timestampB.getTime() - timestampA.getTime(); // Newest first
-                        });
-                        
-                        const latestFile = sortedFiles[0][0];
-                        this.writeDebugLog(`Found ${mdFiles.length} SpecStory files, latest: ${latestFile}`);
-                        logDebug(`Found ${mdFiles.length} SpecStory files, latest: ${latestFile}`);
-                        
-                        // Log all files for debugging
-                        sortedFiles.forEach((file, index) => {
-                            const timestamp = this.extractTimestampFromFileName(file[0]);
-                            this.writeDebugLog(`File #${index + 1}: ${file[0]} (${timestamp.toISOString()})`);
-                        });
-                        
-                        this.writeDebugLog(`Attempting to read latest file manually: ${latestFile}`);
-                        logDebug(`Attempting to read latest file manually: ${latestFile}`);
-                        
-                        const fileUri = vscode.Uri.joinPath(historyUri, latestFile);
-                        const fileContent = await vscode.workspace.fs.readFile(fileUri);
-                        const content = Buffer.from(fileContent).toString('utf8');
-                        
-                        this.writeDebugLog(`Manual file read successful, content length: ${content.length}`);
-                        logDebug(`Manual file read successful, content length: ${content.length}`);
-                        
-                        // Process content manually
-                        this.processSpecStoryContent(content, latestFile);
-                        return;
-                    }
-                } catch (manualError) {
-                    this.writeDebugLog(`Manual file reading failed: ${manualError}`);
-                    logError(`Manual file reading failed: ${manualError}`);
+                    // Log all files for debugging
+                    sortedFiles.forEach((file, index) => {
+                        const timestamp = this.extractTimestampFromFileName(file[0]);
+                        this.writeDebugLog(`File #${index + 1}: ${file[0]} (${timestamp.toISOString()})`);
+                    });
+                    
+                    this.writeDebugLog(`Reading latest file: ${latestFile}`);
+                    logDebug(`Reading latest file: ${latestFile}`);
+                    
+                    const fileUri = vscode.Uri.joinPath(historyUri, latestFile);
+                    const fileContent = await vscode.workspace.fs.readFile(fileUri);
+                    const content = Buffer.from(fileContent).toString('utf8');
+                    
+                    this.writeDebugLog(`File read successful, content length: ${content.length}`);
+                    logDebug(`File read successful, content length: ${content.length}`);
+                    
+                    // Process content
+                    this.processSpecStoryContent(content, latestFile);
+                    return;
                 }
-                return;
+            } catch (directError) {
+                this.writeDebugLog(`Direct file reading failed: ${directError}`);
+                logError(`Direct file reading failed: ${directError}`);
             }
-
-            this.writeDebugLog(`Loaded ${conversations.length} conversations successfully`);
-            logDebug(`Loaded ${conversations.length} conversations successfully`);
-            
-            // DEBUG: Check conversation structure
-            const conv = conversations[0];
-            this.writeDebugLog(`Conversation structure: ${JSON.stringify(Object.keys(conv))}`);
-            this.writeDebugLog(`Conversation topic: "${conv.topic}"`);
-            this.writeDebugLog(`Conversation content length: ${conv.content ? conv.content.length : 'undefined'}`);
-            
-            if (!conv.content) {
-                this.writeDebugLog('ERROR: Conversation content is missing!');
-                logError('Conversation content is missing!');
-                return;
-            }
-            
-            if (!conv.topic) {
-                this.writeDebugLog('ERROR: Conversation topic is missing!');
-                logError('Conversation topic is missing!');
-                return;
-            }
-            
-            this.processSpecStoryContent(conv.content, conv.topic);
 
         } catch (error) {
             this.writeDebugLog(`Critical error in loadPromptsFromSpecStory: ${error}`);
