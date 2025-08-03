@@ -981,8 +981,8 @@ function generateMessageWithRecentPrompts(conversations: {content: string, topic
                 return i18n.t('ai.smartDefault', conversations[0]?.topic || 'code', promptsList);
         }
     } catch (error) {
-        // Fallback if i18n fails - single line format
-        return `AI just responded! Check ${contextAnalysis.focus} | Recent prompts: ${promptsList} | Check: ${contextAnalysis.checks}`;
+        // Fallback if i18n fails - minimal message
+        return `AI responded! Prompts: ${promptsList}`;
     }
 }
 
@@ -1132,12 +1132,12 @@ async function showAINotificationImmediately() {
         countdownTimer = undefined;
     }
     
-    debugChannel.appendLine('[DEBUG] About to call vscode.window.showWarningMessage...');
+    debugChannel.appendLine('[DEBUG] About to call vscode.window.showInformationMessage...');
     
-    // Show single notification - first button is default (activated by Enter)
-    const notificationPromise = vscode.window.showWarningMessage(message, 'Will Check Status', 'Everything OK');
+    // Show single notification with simplified message
+    const notificationPromise = vscode.window.showInformationMessage(message, 'Will Check Status', 'Everything OK');
     
-    debugChannel.appendLine('[DEBUG] showWarningMessage called, waiting for response...');
+    debugChannel.appendLine('[DEBUG] showInformationMessage called, waiting for response...');
     
     notificationPromise.then((selection) => {
         debugChannel.appendLine(`[DEBUG] User selected: ${selection || 'DISMISSED'}`);

@@ -1,5 +1,13 @@
 # Changelog
 
+## [1.1.24] - 2025-08-03
+
+### Fixed
+- Changed to showInformationMessage (blue icon) instead of showWarningMessage (yellow icon)
+- Simplified notification messages to minimal format: "AI worked on X! Prompts: prompt1 | prompt2 | prompt3"
+- Removed all check questions and extra text to prevent text block formatting
+- Ultra-clean notification format for better VS Code display
+
 ## [1.1.23] - 2025-08-03
 
 ### Fixed
