@@ -1,4 +1,5 @@
 import * as vscode from 'vscode';
+import { logDebug, logAIActivity } from '../utils/logger';
 
 /**
  * Advanced detection methods - enhanced webview monitoring, pattern detection
@@ -8,7 +9,7 @@ export function initializeAdvancedDetection(
     debugChannel: vscode.OutputChannel,
     lastDetectedTime: { value: number }
 ) {
-    debugChannel.appendLine('[DEBUG] 🔍 Initializing ADVANCED detection (panels + patterns)...');
+    logDebug('🔍 Initializing ADVANCED detection (panels + patterns)...');
     
     const disposables: vscode.Disposable[] = [];
     

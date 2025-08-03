@@ -1,4 +1,5 @@
 import * as vscode from 'vscode';
+import { logDebug, logAIActivity } from '../utils/logger';
 
 /**
  * Aggressive detection methods - code insertion, memory monitoring, terminal/filesystem activity
