@@ -10,7 +10,14 @@ export class AIActivityProvider implements vscode.WebviewViewProvider {
     private _view?: vscode.WebviewView;
     private _prompts: {timestamp: string, shortPrompt: string, fullContent?: string}[] = [];
 
-    constructor(private readonly _extensionUri: vscode.Uri) {}
+    constructor(private readonly _extensionUri: vscode.Uri) {
+        // Preload prompts when provider is created
+        this.loadPromptsFromSpecStory().then(() => {
+            logDebug(`Activity Bar provider initialized with ${this._prompts.length} prompts`);
+        }).catch(error => {
+            logError(`Failed to preload prompts for Activity Bar: ${error}`);
+        });
+    }
 
     public resolveWebviewView(
         webviewView: vscode.WebviewView,
@@ -26,6 +33,13 @@ export class AIActivityProvider implements vscode.WebviewViewProvider {
 
         // Load prompts immediately when webview is created
         this.loadPromptsFromSpecStory().then(() => {
+            if (webviewView.webview) {
+                webviewView.webview.html = this._getHtmlForWebview(webviewView.webview);
+                logDebug(`Activity Bar HTML updated with ${this._prompts.length} prompts`);
+            }
+        }).catch(error => {
+            logError(`Failed to initialize Activity Bar with prompts: ${error}`);
+            // Set fallback HTML even if prompts fail to load
             webviewView.webview.html = this._getHtmlForWebview(webviewView.webview);
         });
 
@@ -47,11 +61,15 @@ export class AIActivityProvider implements vscode.WebviewViewProvider {
 
     private async loadPromptsFromSpecStory() {
         try {
+            logDebug('Starting to load prompts from SpecStory for Activity Bar...');
+            
             const specstoryPath = await findSpecStoryHistoryPath();
             if (!specstoryPath) {
                 logDebug('No SpecStory path found for Activity Bar');
                 return;
             }
+
+            logDebug(`Found SpecStory path: ${specstoryPath}`);
 
             const conversations = await readRecentSpecStoryConversations(specstoryPath, 15, undefined as any);
             if (!conversations || conversations.length === 0) {
@@ -63,15 +81,21 @@ export class AIActivityProvider implements vscode.WebviewViewProvider {
 
             // Transform conversations to prompts with shortened content
             this._prompts = conversations.map((conv, index) => {
-                const lines = conv.content.split('\n');
+                const lines = conv.content.split('\n').filter(line => line.trim().length > 0);
                 
+                logDebug(`Processing conversation ${index + 1}, lines: ${lines.length}, topic: ${conv.topic}`);
+
                 // Find user prompts (multiple patterns to catch different formats)
                 const userLines = lines.filter(line => {
                     const trimmed = line.trim().toLowerCase();
                     return trimmed.startsWith('user:') || 
                            trimmed.startsWith('**user**') ||
                            trimmed.includes('user:') ||
-                           (trimmed.length > 10 && !trimmed.startsWith('assistant') && !trimmed.startsWith('**assistant'));
+                           line.trim().startsWith('User:') ||
+                           (trimmed.length > 10 && 
+                            !trimmed.startsWith('assistant') && 
+                            !trimmed.startsWith('**assistant') &&
+                            !trimmed.startsWith('github copilot'));
                 });
 
                 let shortPrompt = `Prompt #${conversations.length - index}`;
@@ -80,10 +104,20 @@ export class AIActivityProvider implements vscode.WebviewViewProvider {
                     const userLine = userLines[0]
                         .replace(/^.*?user[:\s]*\**/i, '')
                         .replace(/^\*\*/, '')
+                        .replace(/^User:\s*/i, '')
                         .trim();
                     
                     if (userLine.length > 0) {
                         shortPrompt = userLine.length > 80 ? userLine.substring(0, 80) + '...' : userLine;
+                        logDebug(`Extracted user prompt: "${shortPrompt}"`);
+                    }
+                } else {
+                    // Fallback: use conversation topic or first non-empty line
+                    if (conv.topic && conv.topic.trim().length > 0) {
+                        shortPrompt = conv.topic.length > 80 ? conv.topic.substring(0, 80) + '...' : conv.topic;
+                    } else if (lines.length > 0) {
+                        const firstLine = lines[0].trim();
+                        shortPrompt = firstLine.length > 80 ? firstLine.substring(0, 80) + '...' : firstLine;
                     }
                 }
 
@@ -110,7 +144,13 @@ export class AIActivityProvider implements vscode.WebviewViewProvider {
                 this._prompts = this._prompts.slice(0, maxPrompts);
             }
 
-            logInfo(`Loaded ${this._prompts.length} prompts for Activity Bar`);
+            logInfo(`Successfully loaded ${this._prompts.length} prompts for Activity Bar`);
+            
+            // Debug: log all loaded prompts
+            this._prompts.forEach((prompt, index) => {
+                logDebug(`Prompt ${index + 1}: [${prompt.timestamp}] ${prompt.shortPrompt}`);
+            });
+
         } catch (error) {
             logError(`Failed to load prompts from SpecStory for Activity Bar: ${error}`);
         }
