@@ -50,47 +50,8 @@ export function initializeEnterKeyDetection(
         }
     });
     
-    // Method 2: Command interception for chat commands
-    try {
-        const originalExecuteCommand = vscode.commands.executeCommand;
-
-        (vscode.commands as any).executeCommand = async function(command: string, ...args: any[]) {
-            const cmd = command.toLowerCase();
-            
-            // Execute the original command and wait for it to complete
-            const result = originalExecuteCommand.apply(this, [command, ...args]);
-
-            // Check if it's a command we are interested in AFTER it has been executed
-            if (cmd.includes('acceptinput') || 
-                cmd.includes('send') || 
-                cmd.includes('submit') ||
-                cmd.includes('chat.action.send')) {
-                
-                try {
-                    // Ensure we wait for any promise to resolve
-                    await Promise.resolve(result);
-                    
-                    debugChannel.appendLine(`[DEBUG] 🎯 MESSAGE SEND COMMAND DETECTED: ${command}`);
-                    const now = Date.now();
-                    if (now - lastDetectedTime > 500) { // Debounce
-                        lastDetectedTime = now;
-                        debugChannel.appendLine('[DEBUG] 🚀 HANDLING AI ACTIVITY FROM COMMAND HOOK!');
-                        handleAIActivity();
-                    }
-                } catch (err) {
-                    debugChannel.appendLine(`[DEBUG] ⚠️ Error during command execution: ${err}`);
-                }
-            } else if (cmd.includes('copilot') || cmd.includes('chat')) {
-                debugChannel.appendLine(`[DEBUG] 🔧 Other chat-related command: ${command}`);
-            }
-            
-            return result;
-        };
-        
-        debugChannel.appendLine('[DEBUG] ✅ Command interception installed');
-    } catch (error) {
-        debugChannel.appendLine(`[DEBUG] ⚠️ Command hook failed: ${error}`);
-    }
+    // Method 2: Command interception has been removed due to instability.
+    // We now rely on text document changes and editor focus for detection.
     
     // Method 3: Monitor when chat panel becomes active (user switched to it)
     const editorChangeListener = vscode.window.onDidChangeActiveTextEditor((editor) => {
