@@ -50,48 +50,8 @@ export function initializeEnterKeyDetection(
         }
     });
     
-    // Method 2: Direct keyboard event listener - runs PARALLEL to Copilot
-    let keyboardListener: vscode.Disposable | undefined;
-    
-    try {
-        // Listen for keyboard events directly on active editor
-        keyboardListener = vscode.window.onDidChangeActiveTextEditor((editor) => {
-            if (editor) {
-                const uri = editor.document.uri.toString();
-                // Only listen in Copilot Chat panels
-                if (uri.includes('copilot') || uri.includes('chat') || editor.document.uri.scheme === 'webview-panel') {
-                    debugChannel.appendLine(`[DEBUG] 🎧 Listening for Enter key in chat: ${uri.substring(0, 60)}...`);
-                }
-            }
-        });
-
-        // Alternative: Listen to document changes that happen when Enter is pressed
-        const enterDetectionListener = vscode.workspace.onDidChangeTextDocument((event) => {
-            const uri = event.document.uri.toString();
-            
-            // Focus specifically on chat-related documents
-            if ((uri.includes('copilot') || uri.includes('chat') || event.document.uri.scheme === 'webview-panel') && 
-                !uri.includes('SpecStoryAutoSave')) {
-                
-                // Look for Enter key patterns in the changes
-                event.contentChanges.forEach(change => {
-                    // Detect Enter key press by looking for newline additions
-                    if (change.text === '\n' || change.text.includes('\n')) {
-                        const now = Date.now();
-                        if (now - lastDetectedTime > 100) { // Very short debounce
-                            lastDetectedTime = now;
-                            debugChannel.appendLine('[DEBUG] 🚀 ENTER KEY DETECTED - IMMEDIATE PARALLEL EXECUTION!');
-                            handleAIActivity(); // Runs IMMEDIATELY alongside Copilot
-                        }
-                    }
-                });
-            }
-        });
-        
-        debugChannel.appendLine('[DEBUG] ✅ Parallel keyboard detection installed');
-    } catch (error) {
-        debugChannel.appendLine(`[DEBUG] ⚠️ Keyboard detection failed: ${error}`);
-    }
+    // Method 2: Removed - was conflicting with Method 1
+    // We rely on Method 1 for proper message detection
     
     // Method 3: Monitor when chat panel becomes active (user switched to it)
     const editorChangeListener = vscode.window.onDidChangeActiveTextEditor((editor) => {
@@ -120,5 +80,5 @@ export function initializeEnterKeyDetection(
     debugChannel.appendLine('[DEBUG] 💡 Send a message in Copilot Chat and it should be detected!');
     debugChannel.appendLine('[DEBUG] 💡 Backup: Use Ctrl+Shift+A after sending a message');
     
-    return [textChangeListener, keyboardListener, editorChangeListener].filter(Boolean) as vscode.Disposable[];
+    return [textChangeListener, editorChangeListener];
 }
