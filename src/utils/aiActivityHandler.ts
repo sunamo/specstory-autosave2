@@ -6,6 +6,16 @@ import { generateMessageWithRecentPrompts } from '../specstory/messageGenerator'
  * Core AI activity handling and status management
  */
 
+// Get extension version dynamically from package.json
+function getExtensionVersion(): string {
+    try {
+        const extension = vscode.extensions.getExtension('sunamocz.specstory-autosave');
+        return extension ? extension.packageJSON.version : '1.1.36';
+    } catch (error) {
+        return '1.1.36'; // fallback version
+    }
+}
+
 export function handleAIActivity(
     aiPromptCounter: { value: number },
     debugChannel: vscode.OutputChannel,
@@ -75,8 +85,9 @@ export async function generateSmartNotificationMessage(debugChannel: vscode.Outp
 
 export function updateStatusBar(statusBarItem: vscode.StatusBarItem, aiPromptCounter: { value: number }) {
     if (statusBarItem) {
-        statusBarItem.text = `$(robot) AI: ${aiPromptCounter.value} | v1.1.35`;
-        statusBarItem.tooltip = `AI prompts detected: ${aiPromptCounter.value} | SpecStory AutoSave + AI Copilot Prompt Detection v1.1.35`;
+        const version = getExtensionVersion();
+        statusBarItem.text = `$(robot) AI: ${aiPromptCounter.value} | v${version}`;
+        statusBarItem.tooltip = `AI prompts detected: ${aiPromptCounter.value} | SpecStory AutoSave + AI Copilot Prompt Detection v${version}`;
         statusBarItem.show(); // Ensure the status bar is visible
     }
 }

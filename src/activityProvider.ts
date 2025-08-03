@@ -1,4 +1,5 @@
 import * as vscode from 'vscode';
+import { findSpecStoryHistoryPath, readRecentSpecStoryConversations } from './specstory/historyReader';
 
 /**
  * WebView Provider for Activity Bar - handles AI activity notifications display
@@ -6,7 +7,7 @@ import * as vscode from 'vscode';
 export class AIActivityProvider implements vscode.WebviewViewProvider {
     public static readonly viewType = 'specstoryAINotifications';
     private _view?: vscode.WebviewView;
-    private _notifications: string[] = [];
+    private _prompts: {timestamp: string, shortPrompt: string, fullContent?: string}[] = [];
 
     constructor(private readonly _extensionUri: vscode.Uri) {}
 
@@ -27,45 +28,74 @@ export class AIActivityProvider implements vscode.WebviewViewProvider {
         webviewView.webview.onDidReceiveMessage(data => {
             switch (data.type) {
                 case 'clearAll':
-                    this._notifications = [];
+                    this._prompts = [];
                     this._updateView();
                     break;
             }
         });
     }
 
-    public addNotification(message: string) {
-        const timestamp = new Date().toLocaleTimeString('cs-CZ', { 
-            hour: '2-digit', 
-            minute: '2-digit', 
-            second: '2-digit' 
-        });
-        
-        // Split multi-line message into individual prompts
-        const lines = message.split('\n').filter(line => line.trim().length > 0);
-        
-        // Add each line as a separate notification (in reverse order to maintain chronology)
-        for (let i = lines.length - 1; i >= 0; i--) {
-            const line = lines[i].trim();
-            if (line) {
-                this._notifications.unshift(`[${timestamp}] ${line}`);
-            }
-        }
-        
-        // Get max prompts from configuration
-        const config = vscode.workspace.getConfiguration('specstoryautosave');
-        const maxPrompts = config.get<number>('activityBarMaxPrompts', 10);
-        
-        // Keep only configured number of notifications
-        if (this._notifications.length > maxPrompts) {
-            this._notifications = this._notifications.slice(0, maxPrompts);
-        }
-        
+    public async addNotification(message: string) {
+        // Reload prompts from SpecStory history when notification is added
+        await this.loadPromptsFromSpecStory();
         this._updateView();
     }
 
+    private async loadPromptsFromSpecStory() {
+        try {
+            const specstoryPath = await findSpecStoryHistoryPath();
+            if (!specstoryPath) {
+                return;
+            }
+
+            const conversations = await readRecentSpecStoryConversations(specstoryPath, 10, undefined as any);
+            if (!conversations || conversations.length === 0) {
+                return;
+            }
+
+            // Transform conversations to prompts with shortened content
+            this._prompts = conversations.map(conv => {
+                const lines = conv.content.split('\n');
+                
+                // Find user prompts (lines starting with "User:" or similar)
+                const userLines = lines.filter(line => 
+                    line.trim().toLowerCase().startsWith('user:') || 
+                    line.trim().toLowerCase().startsWith('**user**') ||
+                    line.includes('User:')
+                ).slice(0, 1); // Take first user prompt
+
+                let shortPrompt = 'AI activity detected';
+                if (userLines.length > 0) {
+                    const userLine = userLines[0].replace(/^.*?user[:\s]*\**/i, '').trim();
+                    shortPrompt = userLine.length > 60 ? userLine.substring(0, 60) + '...' : userLine;
+                }
+
+                return {
+                    timestamp: conv.timestamp || new Date().toLocaleTimeString('cs-CZ', { 
+                        hour: '2-digit', 
+                        minute: '2-digit', 
+                        second: '2-digit' 
+                    }),
+                    shortPrompt: shortPrompt,
+                    fullContent: conv.content
+                };
+            });
+
+            // Get max prompts from configuration
+            const config = vscode.workspace.getConfiguration('specstoryautosave');
+            const maxPrompts = config.get<number>('activityBarMaxPrompts', 10);
+            
+            // Keep only configured number of prompts
+            if (this._prompts.length > maxPrompts) {
+                this._prompts = this._prompts.slice(0, maxPrompts);
+            }
+        } catch (error) {
+            console.error('Failed to load prompts from SpecStory:', error);
+        }
+    }
+
     public clearNotifications() {
-        this._notifications = [];
+        this._prompts = [];
         this._updateView();
     }
 
@@ -80,22 +110,18 @@ export class AIActivityProvider implements vscode.WebviewViewProvider {
     }
 
     private _getHtmlForWebview(webview: vscode.Webview) {
-        const notificationsList = this._notifications.length > 0 
-            ? this._notifications.map((notification, index) => {
-                const [timestamp, ...messageParts] = notification.split('] ');
-                const cleanTimestamp = timestamp.replace('[', '');
-                const message = messageParts.join('] ');
-                
+        const notificationsList = this._prompts.length > 0 
+            ? this._prompts.map((prompt, index) => {
                 return `<div class="notification">
                     <div class="notification-header">
-                        <span class="notification-time">${cleanTimestamp}</span>
+                        <span class="notification-time">${prompt.timestamp}</span>
                     </div>
                     <div class="notification-content">
-                        <div class="notification-title">${message}</div>
+                        <div class="notification-title">${prompt.shortPrompt}</div>
                     </div>
                 </div>`;
             }).join('')
-            : '<div class="no-notifications">No AI activity detected yet...</div>';
+            : '<div class="no-notifications">No AI prompts detected yet...</div>';
 
         const config = vscode.workspace.getConfiguration('specstoryautosave');
         const maxPrompts = config.get<number>('activityBarMaxPrompts', 10);
@@ -177,20 +203,6 @@ export class AIActivityProvider implements vscode.WebviewViewProvider {
                     padding: 20px;
                     font-size: 11px;
                 }
-                .clear-button {
-                    background-color: var(--vscode-button-background);
-                    color: var(--vscode-button-foreground);
-                    border: none;
-                    padding: 4px 8px;
-                    cursor: pointer;
-                    border-radius: 3px;
-                    font-size: 10px;
-                    width: 100%;
-                    margin-bottom: 8px;
-                }
-                .clear-button:hover {
-                    background-color: var(--vscode-button-hoverBackground);
-                }
                 .settings-note {
                     font-size: 9px;
                     color: var(--vscode-descriptionForeground);
@@ -203,22 +215,15 @@ export class AIActivityProvider implements vscode.WebviewViewProvider {
         </head>
         <body>
             <div class="header">
-                <span class="header-title">Recent AI Activity</span>
+                <span class="header-title">Recent AI Prompts</span>
                 <span class="header-count">Max: ${maxPrompts}</span>
             </div>
-            <button class="clear-button" onclick="clearAll()">Clear History</button>
             <div id="notifications">
                 ${notificationsList}
             </div>
             <div class="settings-note">
                 Configure max prompts in Settings → SpecStoryAutoSave → Activity Bar Max Prompts
             </div>
-            <script>
-                const vscode = acquireVsCodeApi();
-                function clearAll() {
-                    vscode.postMessage({ type: 'clearAll' });
-                }
-            </script>
         </body>
         </html>`;
     }
