@@ -72,13 +72,20 @@ function initializeCopilotMonitoring(context: vscode.ExtensionContext) {
             
         case 'basic':
             {
+                const enableCommandHook = config.get<boolean>('enableCommandHookDetection', true);
+                const enableWebview = config.get<boolean>('enableWebviewDetection', true);  
+                const enablePanelFocus = config.get<boolean>('enablePanelFocusDetection', false);
+                
                 const disposables = initializeBasicDetection(
                     () => handleAIActivity(aiPromptCounter, debugChannel, async () => {
                         const message = await generateSmartNotificationMessage(debugChannel);
                         await showAINotificationImmediately(message, aiActivityProvider, aiNotificationPanel, debugChannel, countdownTimer);
                     }, () => updateStatusBar(statusBarItem, aiPromptCounter)),
                     debugChannel,
-                    lastDetectedTime
+                    lastDetectedTime,
+                    enableCommandHook,
+                    enableWebview,
+                    enablePanelFocus
                 );
                 
                 disposables.forEach(d => context.subscriptions.push(d));
@@ -88,13 +95,20 @@ function initializeCopilotMonitoring(context: vscode.ExtensionContext) {
         case 'advanced':
             {
                 // Basic detection first
+                const enableCommandHook = config.get<boolean>('enableCommandHookDetection', true);
+                const enableWebview = config.get<boolean>('enableWebviewDetection', true);  
+                const enablePanelFocus = config.get<boolean>('enablePanelFocusDetection', false);
+                
                 const basicDisposables = initializeBasicDetection(
                     () => handleAIActivity(aiPromptCounter, debugChannel, async () => {
                         const message = await generateSmartNotificationMessage(debugChannel);
                         await showAINotificationImmediately(message, aiActivityProvider, aiNotificationPanel, debugChannel, countdownTimer);
                     }, () => updateStatusBar(statusBarItem, aiPromptCounter)),
                     debugChannel,
-                    lastDetectedTime
+                    lastDetectedTime,
+                    enableCommandHook,
+                    enableWebview,
+                    enablePanelFocus
                 );
                 
                 // Advanced detection
@@ -128,7 +142,10 @@ function initializeCopilotMonitoring(context: vscode.ExtensionContext) {
                         await showAINotificationImmediately(message, aiActivityProvider, aiNotificationPanel, debugChannel, countdownTimer);
                     }, () => updateStatusBar(statusBarItem, aiPromptCounter)),
                     debugChannel,
-                    lastDetectedTime
+                    lastDetectedTime,
+                    enableCommandHook,
+                    enableWebview,
+                    enablePanelFocus
                 );
                 
                 const advancedDisposables = initializeAdvancedDetection(

@@ -44,7 +44,7 @@ export function handleAIActivity(
     if (enableNotifications) {
         debugChannel.appendLine(`[DEBUG] ✅ SHOWING NOTIFICATION IMMEDIATELY (counter ${aiPromptCounter.value})`);
         debugChannel.appendLine(`[DEBUG] 📞 CALLING showNotificationCallback()...`);
-        void showNotificationCallback().catch((error) => {
+        showNotificationCallback().catch((error) => {
             debugChannel.appendLine(`[DEBUG] ❌ Error showing notification: ${error}`);
         });
         debugChannel.appendLine(`[DEBUG] ✅ showNotificationCallback() CALLED (async)`);
