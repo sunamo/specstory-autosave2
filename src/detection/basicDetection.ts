@@ -158,8 +158,8 @@ export function initializeBasicDetection(
  */
 function initializePollingDetection(handleAIActivity: () => void, debugChannel: vscode.OutputChannel): NodeJS.Timeout | null {
     try {
-        let lastSpecStoryCheck = Date.now();
-        let lastSpecStoryCount = 0;
+        let lastSpecStoryCount = -1; // Use -1 to indicate uninitialized
+        let isInitialized = false;
         
         const pollingInterval = setInterval(async () => {
             try {
@@ -175,7 +175,15 @@ function initializePollingDetection(handleAIActivity: () => void, debugChannel: 
                             name.endsWith('.md') && type === vscode.FileType.File
                         );
                         
-                        // New files detected
+                        if (!isInitialized) {
+                            // First run - just initialize the count, don't trigger detection
+                            lastSpecStoryCount = mdFiles.length;
+                            isInitialized = true;
+                            logDebug(`📊 Initialized SpecStory file count: ${lastSpecStoryCount} (no detection triggered)`);
+                            return;
+                        }
+                        
+                        // Only detect NEW files after initialization
                         if (mdFiles.length > lastSpecStoryCount) {
                             const newFiles = mdFiles.length - lastSpecStoryCount;
                             logDebug(`📊 Polling detected ${newFiles} new SpecStory files`);
@@ -183,10 +191,6 @@ function initializePollingDetection(handleAIActivity: () => void, debugChannel: 
                             logAIActivity(`AI activity detected via polling (${newFiles} new files)`);
                             lastSpecStoryCount = mdFiles.length;
                             handleAIActivity();
-                        } else if (lastSpecStoryCount === 0) {
-                            // Initialize count on first run
-                            lastSpecStoryCount = mdFiles.length;
-                            logDebug(`📊 Initialized SpecStory file count: ${lastSpecStoryCount}`);
                         }
                         
                     } catch {
