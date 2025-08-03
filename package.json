@@ -2,7 +2,7 @@
   "name": "specstory-autosave",
   "displayName": "SpecStory AutoSave + AI Copilot Prompt Detection",
   "description": "Auto-exports GitHub Copilot Chat to SpecStory documentation + instant AI prompt detection with quality verification notifications",
-  	"version": "1.1.30",
+  	"version": "1.1.31",
   "publisher": "sunamocz",
   "icon": "icon.png",
   "repository": {
@@ -111,8 +111,8 @@
       "activitybar": [
         {
           "id": "specstoryAI",
-          "title": "SpecStory AI Monitor",
-          "icon": "icon.svg"
+          "title": "SpecStory AutoSave",
+          "icon": "icon.png"
         }
       ]
     },
@@ -245,6 +245,13 @@
             "Show detailed webview panels with formatting and buttons",
             "Show in dedicated activity bar view with persistent history"
           ]
+        },
+        "specstoryautosave.activityBarMaxPrompts": {
+          "type": "number",
+          "default": 10,
+          "minimum": 1,
+          "maximum": 50,
+          "description": "Maximum number of AI prompts to show in Activity Bar view history (1-50)"
         }
       }
     }

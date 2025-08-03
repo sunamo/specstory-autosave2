@@ -3,6 +3,20 @@
 ## [1.1.25] - 2025-08-03
 
 ### Added
+## [1.1.31] - 2025-01-08
+### Changed
+- Activity Bar title corrected to "SpecStory AutoSave" (matching extension name)
+- Activity Bar icon changed to use marketplace icon (icon.png) instead of icon.svg
+- Enhanced Activity Bar view with improved styling and numbered prompts
+- Added configurable maximum prompts in Activity Bar (default: 10, range: 1-50)
+- Better visual hierarchy with timestamps, prompt numbers, and detailed formatting
+- Added settings hint in Activity Bar view footer
+
+### Added
+- New configuration: `activityBarMaxPrompts` for controlling Activity Bar history size
+- Structured prompt display with headers, timestamps, and content separation
+- Hover effects and better visual feedback in Activity Bar view
+
 ## [1.1.30] - 2025-01-08
 ### Changed
 - Default notification display type changed to "activitybar" - AI notifications now show in Activity Bar by default

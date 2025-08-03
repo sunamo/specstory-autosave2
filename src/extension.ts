@@ -36,9 +36,13 @@ class AIActivityProvider implements vscode.WebviewViewProvider {
         const timestamp = new Date().toLocaleTimeString();
         this._notifications.unshift(`[${timestamp}] ${message}`);
         
-        // Keep only last 10 notifications
-        if (this._notifications.length > 10) {
-            this._notifications = this._notifications.slice(0, 10);
+        // Get max prompts from configuration
+        const config = vscode.workspace.getConfiguration('specstoryautosave');
+        const maxPrompts = config.get<number>('activityBarMaxPrompts', 10);
+        
+        // Keep only configured number of notifications
+        if (this._notifications.length > maxPrompts) {
+            this._notifications = this._notifications.slice(0, maxPrompts);
         }
         
         this._updateView();
@@ -52,8 +56,29 @@ class AIActivityProvider implements vscode.WebviewViewProvider {
 
     private _getHtmlForWebview(webview: vscode.Webview) {
         const notificationsList = this._notifications.length > 0 
-            ? this._notifications.map(notification => `<div class="notification">${notification}</div>`).join('')
+            ? this._notifications.map((notification, index) => {
+                const [timestamp, ...messageParts] = notification.split('] ');
+                const cleanTimestamp = timestamp.replace('[', '');
+                const message = messageParts.join('] ');
+                const lines = message.split('\n');
+                const firstLine = lines[0] || message;
+                const remainingLines = lines.slice(1);
+                
+                return `<div class="notification">
+                    <div class="notification-header">
+                        <span class="notification-number">#${this._notifications.length - index}</span>
+                        <span class="notification-time">${cleanTimestamp}</span>
+                    </div>
+                    <div class="notification-content">
+                        <div class="notification-title">${firstLine}</div>
+                        ${remainingLines.length > 0 ? `<div class="notification-details">${remainingLines.join('<br>')}</div>` : ''}
+                    </div>
+                </div>`;
+            }).join('')
             : '<div class="no-notifications">No AI activity detected yet...</div>';
+
+        const config = vscode.workspace.getConfiguration('specstoryautosave');
+        const maxPrompts = config.get<number>('activityBarMaxPrompts', 10);
 
         return `<!DOCTYPE html>
         <html lang="en">
@@ -65,46 +90,114 @@ class AIActivityProvider implements vscode.WebviewViewProvider {
                 body {
                     font-family: var(--vscode-font-family);
                     font-size: var(--vscode-font-size);
-                    line-height: var(--vscode-font-weight);
+                    line-height: 1.4;
                     color: var(--vscode-foreground);
                     background-color: var(--vscode-editor-background);
                     margin: 0;
-                    padding: 10px;
+                    padding: 8px;
+                }
+                .header {
+                    display: flex;
+                    justify-content: space-between;
+                    align-items: center;
+                    margin-bottom: 8px;
+                    padding-bottom: 8px;
+                    border-bottom: 1px solid var(--vscode-widget-border);
+                }
+                .header-title {
+                    font-size: 12px;
+                    font-weight: bold;
+                    color: var(--vscode-foreground);
+                }
+                .header-count {
+                    font-size: 10px;
+                    color: var(--vscode-descriptionForeground);
                 }
                 .notification {
-                    background-color: var(--vscode-editor-selectionBackground);
+                    background-color: var(--vscode-list-hoverBackground);
+                    border: 1px solid var(--vscode-widget-border);
                     border-left: 3px solid var(--vscode-charts-blue);
-                    padding: 8px;
-                    margin: 5px 0;
-                    border-radius: 3px;
+                    margin: 4px 0;
+                    border-radius: 4px;
+                    overflow: hidden;
+                    transition: background-color 0.2s ease;
+                }
+                .notification:hover {
+                    background-color: var(--vscode-list-activeSelectionBackground);
+                }
+                .notification-header {
+                    display: flex;
+                    justify-content: space-between;
+                    align-items: center;
+                    padding: 4px 8px;
+                    background-color: var(--vscode-editor-selectionBackground);
+                    border-bottom: 1px solid var(--vscode-widget-border);
+                }
+                .notification-number {
+                    font-size: 10px;
+                    font-weight: bold;
+                    color: var(--vscode-charts-blue);
+                }
+                .notification-time {
+                    font-size: 9px;
+                    color: var(--vscode-descriptionForeground);
+                }
+                .notification-content {
+                    padding: 6px 8px;
+                }
+                .notification-title {
                     font-size: 11px;
+                    font-weight: 500;
+                    color: var(--vscode-foreground);
+                    margin-bottom: 2px;
+                }
+                .notification-details {
+                    font-size: 10px;
+                    color: var(--vscode-descriptionForeground);
+                    line-height: 1.3;
                 }
                 .no-notifications {
                     color: var(--vscode-descriptionForeground);
                     font-style: italic;
                     text-align: center;
                     padding: 20px;
+                    font-size: 11px;
                 }
                 .clear-button {
                     background-color: var(--vscode-button-background);
                     color: var(--vscode-button-foreground);
                     border: none;
-                    padding: 6px 12px;
+                    padding: 4px 8px;
                     cursor: pointer;
                     border-radius: 3px;
-                    font-size: 11px;
-                    margin-bottom: 10px;
+                    font-size: 10px;
                     width: 100%;
+                    margin-bottom: 8px;
                 }
                 .clear-button:hover {
                     background-color: var(--vscode-button-hoverBackground);
                 }
+                .settings-note {
+                    font-size: 9px;
+                    color: var(--vscode-descriptionForeground);
+                    text-align: center;
+                    margin-top: 8px;
+                    padding-top: 8px;
+                    border-top: 1px solid var(--vscode-widget-border);
+                }
             </style>
         </head>
         <body>
+            <div class="header">
+                <span class="header-title">Recent AI Activity</span>
+                <span class="header-count">Max: ${maxPrompts}</span>
+            </div>
             <button class="clear-button" onclick="clearAll()">Clear History</button>
             <div id="notifications">
                 ${notificationsList}
+            </div>
+            <div class="settings-note">
+                Configure max prompts in Settings → SpecStoryAutoSave → Activity Bar Max Prompts
             </div>
             <script>
                 const vscode = acquireVsCodeApi();
