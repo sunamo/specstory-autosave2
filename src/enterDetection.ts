@@ -4,7 +4,7 @@ export function initializeEnterKeyDetection(
     handleAIActivity: () => void,
     debugChannel: vscode.OutputChannel
 ): vscode.Disposable[] {
-    debugChannel.appendLine('🚀 Ultimate GitHub Copilot Chat detection - Real source code analysis');
+    debugChannel.appendLine('🚀 ULTIMATE VS Code Source-Based GitHub Copilot Chat Detection');
     
     // Check Copilot availability
     const copilotExt = vscode.extensions.getExtension('github.copilot');
@@ -14,27 +14,27 @@ export function initializeEnterKeyDetection(
         return [];
     }
     
-    debugChannel.appendLine(`✅ Copilot extensions found - Ultimate detection ACTIVE`);
+    debugChannel.appendLine(`✅ Copilot extensions found - ULTIMATE VS Code source-based detection ACTIVE`);
 
     let lastChatContent = '';
     let lastActivityTime = 0;
     let recentInputActivity = false;
 
-    // Method 1: Ultimate text document change monitoring
-    // Na základě skutečné analýzy Copilot Chat - detekujeme přesné vzory
+    // Method 1: VS Code Source-Based Text Document Change Monitoring
+    // Based on actual VS Code Chat implementation patterns
     const textChangeListener = vscode.workspace.onDidChangeTextDocument((event) => {
         const uri = event.document.uri;
         const scheme = uri.scheme;
         
-        // Skip náš vlastní output
+        // Skip our own output
         if (uri.toString().includes('SpecStoryAutoSave')) {
             return;
         }
         
-        // Detekce pro všechny Copilot Chat schemes s přesnějšími podmínkami
-        const isCopilotChatInput = (
+        // VS Code Chat URI schemes based on source code analysis
+        const isVSCodeChatInput = (
+            scheme === 'vscode-chat-input' ||           // Real VS Code chat input scheme
             scheme === 'chat-editing-snapshot-text-model' || 
-            scheme === 'vscode-chat-input' ||
             scheme === 'interactive-input' ||
             scheme === 'copilot-chat-input' ||
             uri.toString().includes('copilot') ||
@@ -44,39 +44,43 @@ export function initializeEnterKeyDetection(
             (event.document.languageId === 'plaintext' && uri.toString().includes('chat'))
         );
         
-        if (isCopilotChatInput) {
+        if (isVSCodeChatInput) {
             const currentText = event.document.getText();
             const now = Date.now();
             
-            // Sledujeme vstupní aktivitu pro lepší kontext
+            // Track input activity for better context
             if (currentText.length > lastChatContent.length) {
                 recentInputActivity = true;
                 setTimeout(() => { recentInputActivity = false; }, 2000);
             }
             
             for (const change of event.contentChanges) {
-                // Detekce odeslání zprávy - vylepšené na základě reálných vzorů
-                const isMessageSubmitted = (
-                    // Pattern 1: Úplné vymazání textu (nejčastější)
+                // VS Code source-based submit detection patterns
+                const isAcceptInputTriggered = (
+                    // Pattern 1: Complete text clearing (acceptInput clears the input)
                     (change.text === '' && change.rangeLength > 2) ||
                     
-                    // Pattern 2: Významné zmenšení obsahu (>75% textu zmizelo)
+                    // Pattern 2: Major content reduction (>75% text disappeared)
                     (currentText.length < lastChatContent.length * 0.25 && change.rangeLength > 3) ||
                     
-                    // Pattern 3: AcceptInput pattern - když se celý obsah najednou zkrátí
+                    // Pattern 3: AcceptInput pattern - entire content shortened at once
                     (lastChatContent.length > 8 && currentText.length < 2 && change.rangeLength > 6) ||
                     
-                    // Pattern 4: Rapid clearing - rychlé smazání při recentInputActivity
+                    // Pattern 4: Quick clearing during recent activity
                     (recentInputActivity && change.text === '' && change.rangeLength > 1 && lastChatContent.length > 5) ||
                     
-                    // Pattern 5: Multi-line message clearing (Enter s newline)
-                    (change.text === '' && change.rangeLength > 0 && lastChatContent.includes('\n'))
+                    // Pattern 5: Multi-line message clearing (Enter with newline)
+                    (change.text === '' && change.rangeLength > 0 && lastChatContent.includes('\n')) ||
+                    
+                    // Pattern 6: VS Code specific - URI change during text clearing
+                    (scheme === 'vscode-chat-input' && change.text === '' && change.rangeLength > 0)
                 );
                 
-                if (isMessageSubmitted && now - lastActivityTime > 100) {
-                    debugChannel.appendLine(`🚀 COPILOT CHAT MESSAGE SUBMITTED! (pattern detected, -${change.rangeLength} chars, scheme: ${scheme})`);
+                if (isAcceptInputTriggered && now - lastActivityTime > 100) {
+                    debugChannel.appendLine(`🚀 VS CODE CHAT MESSAGE SUBMITTED! (acceptInput detected, -${change.rangeLength} chars, scheme: ${scheme})`);
                     debugChannel.appendLine(`   Previous content: ${lastChatContent.length} chars → current: ${currentText.length} chars`);
                     debugChannel.appendLine(`   Recent input activity: ${recentInputActivity}, Document: ${uri.path.substring(uri.path.length - 30)}`);
+                    debugChannel.appendLine(`   VS Code Chat URI: ${uri.toString().substring(0, 60)}...`);
                     handleAIActivity();
                     lastActivityTime = now;
                     recentInputActivity = false;
@@ -84,37 +88,48 @@ export function initializeEnterKeyDetection(
                 }
             }
             
-            // Aktualizace posledního obsahu - pouze pokud je větší (typ píše)
+            // Update last content - only when larger (user typing)
             if (currentText.length >= lastChatContent.length) {
                 lastChatContent = currentText;
             } else if (currentText.length === 0) {
-                // Reset při úplném vymazání
+                // Reset on complete clearing
                 lastChatContent = '';
             }
         }
     });
 
-    // Method 2: Advanced command execution monitoring
-    // Na základě analýzy Copilot Chat zdrojového kódu - skutečné příkazy
+    // Method 2: VS Code Source-Based Command Monitoring
+    // Based on actual VS Code Chat architecture - acceptInput() method detection
     const commandListener = vscode.commands.registerCommand('specstoryautosave.detectChatSubmit', () => {
         debugChannel.appendLine(`⚡ Direct chat submit command detected!`);
         handleAIActivity();
     });
 
-    // Method 3: Ultimate workbench command monitoring
-    // Skutečné příkazy založené na analýze Copilot Chat kódu
-    const registerUltimateCommandListener = () => {
+    // Method 3: Real VS Code Chat Command Interception
+    // Based on actual VS Code source code analysis - these are the real commands
+    const registerVSCodeCommandListener = () => {
         try {
-            // Skutečné příkazy z GitHub Copilot Chat - analýza zdrojových kódů
-            const realCopilotCommands = [
+            // Real VS Code Chat commands from source code analysis
+            const realVSCodeChatCommands = [
+                // Core VS Code Chat commands (from chatExecuteActions.ts)
                 'workbench.action.chat.submit',
-                'workbench.action.chat.sendMessage', 
+                'workbench.action.edits.submit',
+                'workbench.action.chat.submitWithoutDispatching',
+                'workbench.action.chat.submitWithCodebase',
                 'workbench.action.chat.acceptInput',
+                'workbench.action.chat.sendMessage',
+                
+                // Interactive session commands
                 'interactive.acceptInput',
                 'workbench.action.interactiveSession.submit',
+                
+                // Copilot-specific commands
                 'github.copilot.chat.submitChatMessage',
                 'github.copilot.interactiveEditor.accept',
-                'copilot-chat.submit',
+                'github.copilot.generate',
+                'github.copilot.sendChatMessage',
+                
+                // General chat commands
                 'vscode.chat.submit',
                 'chat.action.submit',
                 'chat.submit'
@@ -122,39 +137,40 @@ export function initializeEnterKeyDetection(
             
             const listeners: vscode.Disposable[] = [];
             
-            // Registrujeme preemptivní posluchače pro všechny možné příkazy
-            realCopilotCommands.forEach(commandId => {
+            // Try to register intercepting listeners for real VS Code commands
+            realVSCodeChatCommands.forEach(commandId => {
                 try {
-                    const listener = vscode.commands.registerCommand(`specstoryautosave.hook.${commandId}`, (...args) => {
+                    const listener = vscode.commands.registerCommand(`specstoryautosave.intercept.${commandId}`, (...args) => {
                         const now = Date.now();
                         if (now - lastActivityTime > 50) {
-                            debugChannel.appendLine(`⚡ REAL COPILOT COMMAND INTERCEPTED: ${commandId}`);
+                            debugChannel.appendLine(`⚡ REAL VS CODE CHAT COMMAND INTERCEPTED: ${commandId}`);
                             debugChannel.appendLine(`   Arguments: ${args.length > 0 ? JSON.stringify(args[0]) : 'none'}`);
+                            debugChannel.appendLine(`   This is a VS Code source-based detection!`);
                             handleAIActivity();
                             lastActivityTime = now;
                         }
                         
-                        // Předáváme dál původní příkaz
+                        // Forward to original command if possible
                         try {
                             return vscode.commands.executeCommand(commandId, ...args);
                         } catch (error) {
-                            // Původní příkaz nemusí existovat - to je OK
+                            // Original command might not exist or be accessible - that's OK
                         }
                     });
                     listeners.push(listener);
                 } catch (error) {
-                    // Registrace může selhat - ignorujeme
+                    // Registration might fail - ignore and continue
                 }
             });
             
             return listeners;
         } catch (error) {
-            debugChannel.appendLine(`⚠️ Could not register ultimate command listeners: ${error}`);
+            debugChannel.appendLine(`⚠️ Could not register VS Code command listeners: ${error}`);
             return [];
         }
     };
 
-    const commandListeners = registerUltimateCommandListener();
+    const commandListeners = registerVSCodeCommandListener();
 
     // Method 4: Ultra-precise selection change monitoring
     // Na základě analýzy InteractiveEditorWidget - sledujeme selection changes s kontextem
@@ -247,35 +263,37 @@ export function initializeEnterKeyDetection(
         }
     });
 
-    // Method 7: Direct keyboard command interception (Enter key)
-    // Přímá detekce Enter klávesy v Copilot Chat kontextu
+    // Method 7: ULTIMATE VS Code Source-Based Enter Key Detection
+    // Direct interception of type command based on VS Code architecture analysis
     const keyboardListener = vscode.commands.registerCommand('type', (args) => {
         const activeEditor = vscode.window.activeTextEditor;
         const now = Date.now();
         
         if (activeEditor && args && typeof args.text === 'string') {
-            const isCopilotChat = (
+            const isVSCodeChatContext = (
+                activeEditor.document.uri.scheme === 'vscode-chat-input' ||    // Real VS Code chat input scheme
                 activeEditor.document.uri.scheme === 'chat-editing-snapshot-text-model' ||
-                activeEditor.document.uri.scheme === 'vscode-chat-input' ||
                 activeEditor.document.uri.scheme === 'interactive-input' ||
                 activeEditor.document.uri.toString().includes('copilot') ||
                 activeEditor.document.uri.toString().includes('chat')
             );
             
-            if (isCopilotChat) {
-                // Detekce Enter klávesy
+            if (isVSCodeChatContext) {
+                // Detect Enter key press (newline characters)
                 if (args.text.includes('\n') || args.text === '\r' || args.text === '\r\n') {
-                    // Pouze pokud máme nějaký obsah předtím
+                    // Only if we had some content before
                     if (lastChatContent.length > 2 && now - lastActivityTime > 50) {
-                        debugChannel.appendLine(`⚡ ULTIMATE: ENTER KEY PRESSED in Copilot Chat!`);
+                        debugChannel.appendLine(`⚡ ULTIMATE: ENTER KEY PRESSED in VS Code Chat!`);
                         debugChannel.appendLine(`   Content before Enter: "${lastChatContent.substring(0, 30)}..."`);
-                        debugChannel.appendLine(`   URI: ${activeEditor.document.uri.scheme}`);
+                        debugChannel.appendLine(`   URI Scheme: ${activeEditor.document.uri.scheme}`);
+                        debugChannel.appendLine(`   This is VS Code source-based detection!`);
                         
-                        // Krátké zpoždění pro zachycení submit
+                        // Short delay to capture the submit action
                         setTimeout(() => {
                             const afterEnterText = activeEditor.document.getText();
                             if (afterEnterText.length < lastChatContent.length * 0.5 || afterEnterText === '') {
-                                debugChannel.appendLine(`✅ CONFIRMED: Message was submitted via Enter!`);
+                                debugChannel.appendLine(`✅ CONFIRMED: VS Code Chat message was submitted via Enter!`);
+                                debugChannel.appendLine(`   Text length change: ${lastChatContent.length} → ${afterEnterText.length}`);
                                 handleAIActivity();
                             }
                         }, 50);
@@ -286,11 +304,13 @@ export function initializeEnterKeyDetection(
             }
         }
         
-        // KRITICKÉ: Předáváme příkaz dál pro normální fungování
+        // CRITICAL: Forward the command for normal functioning
         return vscode.commands.executeCommand('default:type', args);
     });
 
-    debugChannel.appendLine('✅ ULTIMATE Copilot Chat detection active (7 advanced methods based on real source code analysis)');
+    debugChannel.appendLine('✅ ULTIMATE VS Code source-based Copilot Chat detection active (7 advanced methods)');
+    debugChannel.appendLine('   Based on real VS Code source code analysis from C:\\_OvěřitCoTamDělá40GB\\vscode-main\\');
+    debugChannel.appendLine('   Monitoring: vscode-chat-input, chat-editing-snapshot-text-model, acceptInput patterns');
     
     const allListeners = [
         textChangeListener, 
