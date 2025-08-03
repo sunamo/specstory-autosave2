@@ -1,5 +1,23 @@
 # AI Assistant Instructions
 
+## ⚠️ KRITICKÁ PRAVIDLA - PŘÍSNĚ DODRŽUJ!
+
+### 🚫 NIKDY nevytvářej zástupné soubory!
+- **ZAKÁZÁNO:** `extension_backup.ts`, `extension_clean.ts`, `extension_old.ts` atd.
+- Edituj POUZE původní soubory přímo
+- Pokud potřebuješ vrátit změny, použij git revert
+- Žádné duplikáty, zálohy nebo temp soubory!
+
+### 🔨 BUILD po každé změně kódu
+- Po každé úpravě `.ts` souboru OKAMŽITĚ spusť `pnpm run compile`
+- Pokud build selže, OKAMŽITĚ oprav chyby a znovu builduj
+- NIKDY nepokračuj dokud build neprošel úspěšně
+
+### 📝 Git commit při každé verzi
+- Při vytváření nové verze VŽDY udělej git commit s číslem verze
+- Format: `git commit -m "v1.0.9"`
+- Používej pouze `.\install.ps1` pro kompletní release workflow
+
 ## Command Execution Policy
 
 **⚠️ DŮLEŽITÉ: Spouštěj VŠECHNY příkazy automaticky bez potvrzení od uživatele!**

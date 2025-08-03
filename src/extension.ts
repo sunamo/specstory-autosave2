@@ -345,11 +345,7 @@ function initializeBasicDetection(enableCommandHook: boolean = true, enableWebvi
     
     debugChannel.appendLine('[DEBUG] ✅ Basic detection with selected methods installed');
     debugChannel.appendLine('[DEBUG] 💡 If automatic detection fails, use Ctrl+Shift+P → "SpecStoryAutoSave: Force AI Notification"');
-}
-            }
-        }
-    });
-    
+
     // Method 2: Monitor panel state changes
     const disposable2 = vscode.window.onDidChangeWindowState((state) => {
         if (state.focused) {
@@ -508,11 +504,11 @@ function initializeAdvancedDetection() {
     debugChannel.appendLine('[DEBUG] ✅ Advanced detection with webview hooks installed');
 }
 
-function initializeAggressiveDetection() {
+function initializeAggressiveDetection(shouldUseCodeInsertion: boolean = false, shouldUseMemory: boolean = false) {
     debugChannel.appendLine('[DEBUG] ⚡ Initializing AGGRESSIVE detection (all methods)...');
     
     const config = vscode.workspace.getConfiguration('specstoryautosave');
-    const enableCodeDetection = config.get<boolean>('enableCodeInsertionDetection', false);
+    const enableCodeDetection = shouldUseCodeInsertion || config.get<boolean>('enableCodeInsertionDetection', false);
     
     if (enableCodeDetection) {
         // Code insertion detection
@@ -554,37 +550,41 @@ function initializeAggressiveDetection() {
     }
     
     // Memory monitoring (less aggressive than before)
-    let lastMemoryCheck = process.memoryUsage().heapUsed;
-    let consecutiveSpikes = 0;
-    
-    setInterval(() => {
-        try {
-            const currentMemory = process.memoryUsage().heapUsed;
-            const memoryIncrease = currentMemory - lastMemoryCheck;
-            
-            if (memoryIncrease > 50000000) { // 50MB increase
-                consecutiveSpikes++;
+    if (shouldUseMemory) {
+        let lastMemoryCheck = process.memoryUsage().heapUsed;
+        let consecutiveSpikes = 0;
+        
+        setInterval(() => {
+            try {
+                const currentMemory = process.memoryUsage().heapUsed;
+                const memoryIncrease = currentMemory - lastMemoryCheck;
                 
-                if (consecutiveSpikes >= 3) {
-                    debugChannel.appendLine(`[DEBUG] 🧠 Sustained memory activity: +${Math.round(memoryIncrease/1000000)}MB`);
+                if (memoryIncrease > 50000000) { // 50MB increase
+                    consecutiveSpikes++;
                     
-                    const now = Date.now();
-                    if (now - lastDetectedTime > 10000) {
-                        lastDetectedTime = now;
-                        debugChannel.appendLine('[DEBUG] 🚀 AGGRESSIVE MEMORY DETECTION!');
-                        handleAIActivity();
+                    if (consecutiveSpikes >= 3) {
+                        debugChannel.appendLine(`[DEBUG] 🧠 Sustained memory activity: +${Math.round(memoryIncrease/1000000)}MB`);
+                        
+                        const now = Date.now();
+                        if (now - lastDetectedTime > 10000) {
+                            lastDetectedTime = now;
+                            debugChannel.appendLine('[DEBUG] 🚀 AGGRESSIVE MEMORY DETECTION!');
+                            handleAIActivity();
+                        }
+                        consecutiveSpikes = 0;
                     }
-                    consecutiveSpikes = 0;
+                } else {
+                    consecutiveSpikes = Math.max(0, consecutiveSpikes - 1);
                 }
-            } else {
-                consecutiveSpikes = Math.max(0, consecutiveSpikes - 1);
+                
+                lastMemoryCheck = currentMemory;
+            } catch (error) {
+                // Ignore memory errors
             }
-            
-            lastMemoryCheck = currentMemory;
-        } catch (error) {
-            // Ignore memory errors
-        }
-    }, 5000);
+        }, 5000);
+        
+        debugChannel.appendLine('[DEBUG] 🧠 Memory monitoring enabled');
+    }
     
     debugChannel.appendLine('[DEBUG] ✅ Aggressive detection installed');
 }

@@ -4,6 +4,22 @@ All notable changes to the "specstory-autosave" extension will be documented in 
 
 Check [Keep a Changelog](http://keepachangelog.com/) for recommendations on how to structure this file.
 
+## [1.1.0] - 2025-08-03
+
+### Changed
+- Implemented strict development rules: NO backup files (extension_backup.ts, extension_clean.ts)
+- Added mandatory build after every code change
+- Enhanced AI instructions with critical development rules
+
+### Removed
+- Deleted extension_backup.ts and extension_clean.ts files
+- Eliminated all temporary/backup TypeScript files
+
+### Added
+- Comprehensive AI development rules in .github/ai-instructions.md
+- Automatic build verification after code changes
+- Strict git commit workflow for version releases
+
 ## [1.0.9] - 2025-08-03
 
 ### Changed
