@@ -25,9 +25,9 @@ export function handleAIActivity(
 ) {
     const now = Date.now();
     
-    // Debouncing - prevent multiple triggers within 500ms for faster response
-    if (lastDetectedTime && (now - lastDetectedTime.value < 500)) {
-        debugChannel.appendLine(`[DEBUG] AI activity ignored - too soon (${now - lastDetectedTime.value}ms since last detection)`);
+    // Much shorter cooldown only for rapid duplicate triggers (100ms instead of 500ms)
+    if (lastDetectedTime && (now - lastDetectedTime.value < 100)) {
+        debugChannel.appendLine(`[DEBUG] AI activity ignored - too rapid (${now - lastDetectedTime.value}ms since last detection)`);
         return;
     }
     

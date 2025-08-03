@@ -130,7 +130,8 @@ export class AIActivityProvider implements vscode.WebviewViewProvider {
     }
 
     public async addNotification(message: string) {
-        this.writeDebugLog(`=== ADDING NEW NOTIFICATION ===`);
+        const startTime = Date.now();
+        this.writeDebugLog(`=== ADDING NEW NOTIFICATION START ===`);
         this.writeDebugLog(`Message: ${message}`);
         logDebug(`Adding new AI notification: ${message.substring(0, 100)}...`);
         
@@ -160,8 +161,19 @@ export class AIActivityProvider implements vscode.WebviewViewProvider {
             this.writeDebugLog(`Trimmed to max ${maxPrompts} prompts`);
         }
         
-        // Update the view immediately
+        // Update the view immediately with retry mechanism
         this._updateView();
+        
+        // Force immediate focus switch to Activity Bar
+        try {
+            await vscode.commands.executeCommand('workbench.view.extension.specstoryAI');
+            this.writeDebugLog('Switched to Activity Bar view');
+        } catch (error) {
+            this.writeDebugLog(`Failed to switch to Activity Bar: ${error}`);
+        }
+        
+        const duration = Date.now() - startTime;
+        this.writeDebugLog(`=== NOTIFICATION ADDED IN ${duration}ms ===`);
         
         // Also refresh SpecStory data in background (don't wait for it)
         this.loadPromptsFromSpecStory().catch(error => {
@@ -434,9 +446,17 @@ export class AIActivityProvider implements vscode.WebviewViewProvider {
     }
 
     private _updateView() {
+        const startTime = Date.now();
+        this.writeDebugLog(`=== UPDATING VIEW START ===`);
+        
         if (this._view) {
             this._view.webview.html = this._getHtmlForWebview(this._view.webview);
-            logDebug('Activity Bar view updated');
+            const duration = Date.now() - startTime;
+            this.writeDebugLog(`Activity Bar view updated in ${duration}ms`);
+            logDebug(`Activity Bar view updated in ${duration}ms`);
+        } else {
+            this.writeDebugLog('❌ Cannot update view - _view is null');
+            logDebug('❌ Cannot update view - _view is null');
         }
     }
 

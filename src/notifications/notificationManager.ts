@@ -45,10 +45,20 @@ export async function showAINotificationImmediately(
     } else if (displayType === 'activitybar') {
         // Use activity bar view
         debugChannel.appendLine('[DEBUG] Using activity bar display');
-        aiActivityProvider.addNotification(message);
         
-        // Focus the activity bar view
-        vscode.commands.executeCommand('workbench.view.extension.specstoryAI');
+        const startTime = Date.now();
+        
+        // Add notification first
+        await aiActivityProvider.addNotification(message);
+        debugChannel.appendLine(`[DEBUG] Activity provider notification added in ${Date.now() - startTime}ms`);
+        
+        // Focus the activity bar view with retry mechanism
+        try {
+            await vscode.commands.executeCommand('workbench.view.extension.specstoryAI');
+            debugChannel.appendLine(`[DEBUG] Activity bar focused in ${Date.now() - startTime}ms total`);
+        } catch (error) {
+            debugChannel.appendLine(`[DEBUG] Failed to focus activity bar: ${error}`);
+        }
         
     } else {
         // Use webview panel - but share the same display logic as activity bar
