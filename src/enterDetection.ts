@@ -39,6 +39,9 @@ export function initializeEnterKeyDetection(
         
         // Detect Copilot Chat - comprehensive detection
         const isCopilotChat = (
+            // Chat editing snapshot models (NEW: this is what you're using!)
+            (scheme === 'chat-editing-snapshot-text-model') ||
+            
             // Webview panels containing copilot/chat
             (scheme === 'webview-panel' && (uri.includes('copilot') || uri.includes('chat') || uri.includes('github-copilot') || uri.includes('GitHub.copilot'))) ||
             
@@ -58,6 +61,12 @@ export function initializeEnterKeyDetection(
             (scheme === 'untitled' && uri.includes('chat')) ||
             (scheme === 'inmemory' && uri.includes('copilot'))
         );
+        
+        // Debug: Show detection result
+        debugChannel.appendLine(`[DEBUG] 🔍   - isCopilotChat: ${isCopilotChat} (was: ${isInCopilotChat})`);
+        if (scheme === 'chat-editing-snapshot-text-model') {
+            debugChannel.appendLine(`[DEBUG] 🎯 FOUND CHAT-EDITING-SNAPSHOT-TEXT-MODEL! This should trigger detection!`);
+        }
         
         if (isCopilotChat !== isInCopilotChat) {
             isInCopilotChat = isCopilotChat;
@@ -161,6 +170,9 @@ export function initializeEnterKeyDetection(
             
             // Check if any visible editor is Copilot Chat
             const isVisibleCopilotChat = (
+                // Chat editing snapshot models (NEW!)
+                (scheme === 'chat-editing-snapshot-text-model') ||
+                
                 (scheme === 'webview-panel' && (uri.includes('copilot') || uri.includes('chat') || uri.includes('github-copilot') || uri.includes('GitHub.copilot'))) ||
                 (scheme === 'vscode-interactive' || scheme === 'vscode-notebook-cell') ||
                 (scheme === 'vscode-chat' || scheme === 'chat') ||
