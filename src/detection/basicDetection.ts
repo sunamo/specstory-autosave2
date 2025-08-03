@@ -98,46 +98,69 @@ export function initializeBasicDetection(
 /**
  * Initialize command hook for immediate chat message detection.
  * This is the primary and most reliable method.
+ * 
+ * NOTE: We cannot directly intercept executeCommand calls without breaking functionality.
+ * Instead, we use a combination of text change monitoring and keyboard shortcuts.
  */
 function initializeCommandHook(handleAIActivity: () => void, debugChannel: vscode.OutputChannel): vscode.Disposable[] {
     const disposables: vscode.Disposable[] = [];
-    const chatCommand = 'workbench.action.chat.submit';
-
-    try {
-        // Wrap the original command
-        const originalCommandHandler = vscode.commands.registerCommand(chatCommand, async (args) => {
-            logDebug(`⚡️ Chat command intercepted: ${chatCommand}`);
-            logAIActivity('AI activity detected via chat submit command');
+    
+    logDebug(`⚠️ Command Hook DISABLED to prevent Copilot blocking`);
+    logDebug(`🔧 Using alternative detection methods instead`);
+    
+    // Alternative 1: Monitor text document changes for chat patterns
+    const textChangeListener = vscode.workspace.onDidChangeTextDocument((event) => {
+        const uri = event.document.uri.toString();
+        const scheme = event.document.uri.scheme;
+        
+        // Skip our own debug channels
+        if (uri.includes('SpecStoryAutoSave')) {
+            return;
+        }
+        
+        // Focus on webview panels (where Copilot Chat runs)
+        if (scheme === 'webview-panel' || uri.includes('copilot') || uri.includes('chat')) {
+            logDebug(`📝 Text change in potential chat panel: ${uri.substring(0, 60)}...`);
             
-            // Trigger our handler immediately
-            handleAIActivity();
-
-            // IMPORTANT: We must NOT call the original command again from here,
-            // as this registered callback *is* the new handler.
-            // The original handler is gone. We now need to replicate its function.
-            // The most important part is to make the text available to the chat view.
-            // A simple way is to paste it.
-            if (typeof args === 'object' && args && 'query' in args && typeof args.query === 'string') {
-                // This is the modern way Copilot Chat sends queries
-                logDebug(`💬 Chat query found in args: "${args.query}"`);
-            } else {
-                // Fallback for older versions or different command structures
-                const editor = vscode.window.activeTextEditor;
-                if (editor && editor.document.uri.scheme === 'vscode-interactive') {
-                    logDebug(`📝 Pasting text from active editor into chat`);
+            if (event.contentChanges.length > 0) {
+                const changes = event.contentChanges;
+                let messageWasSent = false;
+                
+                changes.forEach(change => {
+                    const newText = change.text;
+                    
+                    // Detect patterns that indicate message was sent
+                    if (newText.includes('User:') || 
+                        newText.includes('You:') ||
+                        newText.includes('Human:') ||
+                        (newText.length === 0 && change.rangeLength > 5)) { // Text cleared after sending
+                        messageWasSent = true;
+                        logDebug(`🎯 MESSAGE SENT PATTERN DETECTED in text change!`);
+                    }
+                });
+                
+                if (messageWasSent) {
+                    logDebug('🚀 COMMAND HOOK EQUIVALENT - MESSAGE SENT VIA TEXT PATTERN!');
+                    logAIActivity('AI activity detected via text change pattern (equivalent to command hook)');
+                    handleAIActivity();
                 }
             }
-            
-            // Let the default VS Code command handling proceed.
-            // We don't execute another command, just let the event bubble up.
-        });
-
-        disposables.push(originalCommandHandler);
-        logDebug(`✅ Command hook initialized for: ${chatCommand}`);
-
-    } catch (error) {
-        logDebug(`⚠️ Command hook initialization failed for ${chatCommand}: ${error}`);
-    }
+        }
+    });
+    
+    disposables.push(textChangeListener);
+    
+    // Alternative 2: Register our own keyboard shortcut for manual triggering
+    const manualTrigger = vscode.commands.registerCommand('specstory-autosave.triggerAIDetection', () => {
+        logDebug('🚀 MANUAL AI DETECTION TRIGGERED!');
+        logAIActivity('AI activity detected via manual trigger (Ctrl+Shift+A)');
+        handleAIActivity();
+    });
+    
+    disposables.push(manualTrigger);
+    
+    logDebug(`✅ Alternative command hook methods initialized (text monitoring + manual trigger)`);
+    logDebug(`💡 Use Ctrl+Shift+A to manually trigger detection after sending Copilot messages`);
 
     return disposables;
 }
