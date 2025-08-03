@@ -50,42 +50,47 @@ export function initializeEnterKeyDetection(
         }
     });
     
-    // Method 2: Command interception for chat commands
+    // Method 2: Direct keyboard event listener - runs PARALLEL to Copilot
+    let keyboardListener: vscode.Disposable | undefined;
+    
     try {
-        const originalExecuteCommand = vscode.commands.executeCommand;
-
-        (vscode.commands as any).executeCommand = function(command: string, ...args: any[]) {
-            const cmd = command.toLowerCase();
-            
-            // Execute the original command FIRST and get its result
-            const result = originalExecuteCommand.apply(this, [command, ...args]);
-
-            const isChatSendCommand = cmd.includes('acceptinput') || 
-                                    cmd.includes('send') || 
-                                    cmd.includes('submit') ||
-                                    cmd.includes('chat.action.send');
-
-            if (isChatSendCommand) {
-                // Run our detection logic IMMEDIATELY - no delay!
-                debugChannel.appendLine(`[DEBUG] 🎯 MESSAGE SEND COMMAND DETECTED: ${command}`);
-                const now = Date.now();
-                if (now - lastDetectedTime > 500) { // Debounce
-                    lastDetectedTime = now;
-                    debugChannel.appendLine('[DEBUG] 🚀 HANDLING AI ACTIVITY FROM COMMAND HOOK - IMMEDIATE!');
-                    handleAIActivity();
+        // Listen for keyboard events directly on active editor
+        keyboardListener = vscode.window.onDidChangeActiveTextEditor((editor) => {
+            if (editor) {
+                const uri = editor.document.uri.toString();
+                // Only listen in Copilot Chat panels
+                if (uri.includes('copilot') || uri.includes('chat') || editor.document.uri.scheme === 'webview-panel') {
+                    debugChannel.appendLine(`[DEBUG] 🎧 Listening for Enter key in chat: ${uri.substring(0, 60)}...`);
                 }
-            } else if (cmd.includes('copilot') || cmd.includes('chat')) {
-                // Log other relevant commands without triggering the action
-                debugChannel.appendLine(`[DEBUG] 🔧 Other chat-related command: ${command}`);
             }
+        });
+
+        // Alternative: Listen to document changes that happen when Enter is pressed
+        const enterDetectionListener = vscode.workspace.onDidChangeTextDocument((event) => {
+            const uri = event.document.uri.toString();
             
-            // Return the original result immediately - don't block!
-            return result;
-        };
+            // Focus specifically on chat-related documents
+            if ((uri.includes('copilot') || uri.includes('chat') || event.document.uri.scheme === 'webview-panel') && 
+                !uri.includes('SpecStoryAutoSave')) {
+                
+                // Look for Enter key patterns in the changes
+                event.contentChanges.forEach(change => {
+                    // Detect Enter key press by looking for newline additions
+                    if (change.text === '\n' || change.text.includes('\n')) {
+                        const now = Date.now();
+                        if (now - lastDetectedTime > 100) { // Very short debounce
+                            lastDetectedTime = now;
+                            debugChannel.appendLine('[DEBUG] 🚀 ENTER KEY DETECTED - IMMEDIATE PARALLEL EXECUTION!');
+                            handleAIActivity(); // Runs IMMEDIATELY alongside Copilot
+                        }
+                    }
+                });
+            }
+        });
         
-        debugChannel.appendLine('[DEBUG] ✅ Command interception installed');
+        debugChannel.appendLine('[DEBUG] ✅ Parallel keyboard detection installed');
     } catch (error) {
-        debugChannel.appendLine(`[DEBUG] ⚠️ Command hook failed: ${error}`);
+        debugChannel.appendLine(`[DEBUG] ⚠️ Keyboard detection failed: ${error}`);
     }
     
     // Method 3: Monitor when chat panel becomes active (user switched to it)
@@ -115,5 +120,5 @@ export function initializeEnterKeyDetection(
     debugChannel.appendLine('[DEBUG] 💡 Send a message in Copilot Chat and it should be detected!');
     debugChannel.appendLine('[DEBUG] 💡 Backup: Use Ctrl+Shift+A after sending a message');
     
-    return [textChangeListener, editorChangeListener];
+    return [textChangeListener, keyboardListener, editorChangeListener].filter(Boolean) as vscode.Disposable[];
 }
