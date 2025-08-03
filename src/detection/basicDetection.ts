@@ -294,6 +294,35 @@ export function initializeBasicDetection(
             });
             disposables.push(keyboardDisposable);
             
+            // APPROACH 3: NEW - Try to hook into lower-level VS Code APIs
+            try {
+                // Monitor for any webview message posting (might catch chat submissions)
+                const originalPostMessage = (global as any).postMessage;
+                if (originalPostMessage) {
+                    (global as any).postMessage = function(message: any, ...args: any[]) {
+                        logDebug(`📨 WEBVIEW MESSAGE: ${JSON.stringify(message).slice(0, 100)}`);
+                        
+                        // Check if message looks like chat submission
+                        if (typeof message === 'object' && message) {
+                            const msgStr = JSON.stringify(message).toLowerCase();
+                            if (msgStr.includes('chat') || msgStr.includes('submit') || msgStr.includes('copilot')) {
+                                logDebug(`🎯 POTENTIAL CHAT MESSAGE DETECTED!`);
+                                logAIActivity(`Chat message detected via webview: ${msgStr.slice(0, 100)}`);
+                                setTimeout(() => {
+                                    debouncedHandleAIActivity('Webview-Message');
+                                }, 50);
+                            }
+                        }
+                        
+                        return originalPostMessage.apply(this, [message, ...args]);
+                    };
+                    
+                    logDebug('✅ Webview message hook installed');
+                }
+            } catch (error) {
+                logDebug(`⚠️ Webview message hook failed: ${error}`);
+            }
+            
             logDebug('✅ Enhanced command hook installed with comprehensive error handling');
         } catch (error) {
             logDebug(`⚠️ Command hook failed: ${error}`);
@@ -558,13 +587,21 @@ function initializePollingDetection(handleAIActivity: () => void, debugChannel: 
                     // Detect changes in visible editors count
                     if (visibleEditorsCount !== lastVisibleEditorsCount) {
                         logDebug(`👁️ POLLING: Visible editors count changed from ${lastVisibleEditorsCount} to ${visibleEditorsCount}`);
-                        lastVisibleEditorsCount = visibleEditorsCount;
                         
-                        // Any change in visible editors might indicate chat activity
-                        setTimeout(() => {
-                            logAIActivity(`Visible editors change detected via polling`);
-                            handleAIActivity();
-                        }, 500); // Small delay to let UI settle
+                        // IGNORE STARTUP CHANGES - only trigger if not initial setup
+                        if (lastVisibleEditorsCount > 0 && checkCounter > 15) { // After initial startup (3 seconds)
+                            logDebug(`🎯 POLLING: Significant editor change detected (not startup)`);
+                            lastVisibleEditorsCount = visibleEditorsCount;
+                            
+                            // Any change in visible editors might indicate chat activity
+                            setTimeout(() => {
+                                logAIActivity(`Visible editors change detected via polling`);
+                                handleAIActivity();
+                            }, 500); // Small delay to let UI settle
+                        } else {
+                            logDebug(`🔕 POLLING: Ignoring startup editor change (counter=${checkCounter})`);
+                            lastVisibleEditorsCount = visibleEditorsCount;
+                        }
                     }
                 }
                 
