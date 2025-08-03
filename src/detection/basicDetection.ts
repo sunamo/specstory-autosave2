@@ -96,9 +96,13 @@ export function initializeBasicDetection(
         
         // NEW: Additional webview monitoring for ALL Copilot activity
         const disposable1b = vscode.window.onDidChangeVisibleTextEditors((editors) => {
-            editors.forEach(editor => {
+            logDebug(`👁️ Visible editors changed: ${editors.length} editors`);
+            
+            editors.forEach((editor, index) => {
                 if (!editor) return;
                 const uri = editor.document.uri.toString();
+                
+                logDebug(`  Editor #${index + 1}: ${uri}`);
                 
                 // Detect ANY Copilot-related activity
                 if (uri.includes('copilot') || uri.includes('chat') || 
@@ -110,6 +114,29 @@ export function initializeBasicDetection(
             });
         });
         disposables.push(disposable1b);
+        
+        // NEW: Monitor active editor changes more aggressively  
+        const disposable1c = vscode.window.onDidChangeActiveTextEditor((editor) => {
+            // Always log editor changes for debugging
+            if (editor) {
+                const uri = editor.document.uri.toString();
+                logDebug(`📝 ACTIVE EDITOR CHANGED: ${uri}`);
+                
+                // Trigger on ANY chat-related editor activation
+                if (uri.includes('copilot') || uri.includes('chat') || 
+                    uri.includes('github.copilot') || uri.includes('inlinechat') ||
+                    (uri.includes('webview') && (uri.includes('chat') || uri.includes('copilot')))) {
+                    
+                    logDebug(`🎯 COPILOT EDITOR ACTIVATED: ${uri}`);
+                    logAIActivity(`Copilot editor activated: ${uri}`);
+                    handleAIActivity();
+                }
+            } else {
+                logDebug(`📝 ACTIVE EDITOR CHANGED: null`);
+            }
+        });
+        disposables.push(disposable1b);
+        disposables.push(disposable1c);
     }
     
     // Method 2: Monitor panel state changes (if enabled)
@@ -157,6 +184,11 @@ export function initializeBasicDetection(
             (vscode.commands as any).executeCommand = async function(command: string, ...args: any[]) {
                 const cmd = command.toLowerCase();
                 
+                // DEBUG: Log ALL commands for troubleshooting
+                if (Math.random() < 0.05) { // 5% chance to avoid spam
+                    logDebug(`🔍 COMMAND EXECUTED: ${command}`);
+                }
+                
                 // Expanded command detection for better coverage
                 const copilotCommands = [
                     'github.copilot',
@@ -174,18 +206,30 @@ export function initializeBasicDetection(
                 const isCopilotCommand = copilotCommands.some(pattern => cmd.includes(pattern));
                 
                 if (isCopilotCommand) {
-                    logDebug(`🔧 COPILOT COMMAND: ${command}`);
+                    logDebug(`🔧 COPILOT COMMAND DETECTED: ${command}`);
                     
                     // Immediate detection without timing restrictions
                     logDebug('🚀 ENHANCED COMMAND HOOK DETECTION!');
                     logAIActivity(`AI activity detected via command: ${command}`);
-                    handleAIActivity();
+                    
+                    try {
+                        handleAIActivity();
+                        logDebug(`✅ handleAIActivity called successfully for command: ${command}`);
+                    } catch (handleError) {
+                        logDebug(`❌ handleAIActivity failed for command ${command}: ${handleError}`);
+                    }
                 }
                 
-                return originalExecuteCommand.apply(this, [command, ...args]);
+                // Always call original command, even if our detection fails
+                try {
+                    return await originalExecuteCommand.apply(this, [command, ...args]);
+                } catch (commandError) {
+                    logDebug(`❌ Original command execution failed: ${command} - ${commandError}`);
+                    throw commandError;
+                }
             };
             
-            logDebug('✅ Enhanced command hook installed');
+            logDebug('✅ Enhanced command hook installed with comprehensive error handling');
         } catch (error) {
             logDebug(`⚠️ Command hook failed: ${error}`);
         }
@@ -206,7 +250,9 @@ export function initializeBasicDetection(
     });
     disposables.push(disposable4);
     
-    // NEW: Monitor document changes that might indicate AI responses
+    // NEW: Monitor document changes that might indicate AI responses - DISABLED for Ask prompts
+    // This detection is not useful for "Ask" type prompts that don't change code
+    /*
     const disposable5 = vscode.workspace.onDidChangeTextDocument((event) => {
         if (!event.document) return;
         
@@ -224,6 +270,54 @@ export function initializeBasicDetection(
         }
     });
     disposables.push(disposable5);
+    */
+    
+    // NEW: Aggressive keyboard activity monitoring for Chat prompts
+    const disposable6 = vscode.window.onDidChangeTextEditorSelection((event) => {
+        const editor = event.textEditor;
+        if (!editor) return;
+        
+        const uri = editor.document.uri.toString();
+        // Detect ANY activity in Copilot Chat context
+        if (uri.includes('copilot') || uri.includes('chat') || uri.includes('github.copilot')) {
+            // Only trigger on significant selection changes (not just cursor moves)
+            if (event.selections.some(sel => !sel.isEmpty)) {
+                logDebug(`🎯 CHAT SELECTION ACTIVITY: ${uri}`);
+                logAIActivity(`Chat selection activity detected: ${uri}`);
+                handleAIActivity();
+            }
+        }
+    });
+    disposables.push(disposable6);
+    
+    // NEW: Monitor ANY keyboard activity in VS Code (for Chat detection)
+    const disposable7 = vscode.workspace.onDidChangeTextDocument((event) => {
+        if (!event.document) return;
+        
+        const uri = event.document.uri.toString();
+        // Detect typing in Copilot Chat input areas
+        if ((uri.includes('copilot') || uri.includes('chat')) && 
+            event.contentChanges.length > 0) {
+            
+            // Check if this looks like user input (not AI response)
+            const hasUserTyping = event.contentChanges.some(change => 
+                change.text.length > 0 && change.text.length < 100 && // Short user input
+                !change.text.includes('```') && // Not code blocks  
+                !change.text.includes('function') && // Not generated code
+                change.text.trim().length > 0
+            );
+            
+            if (hasUserTyping) {
+                logDebug(`⌨️ USER TYPING IN CHAT: ${uri}`);
+                logAIActivity(`User typing detected in chat: ${uri}`);
+                // Small delay to capture full prompt
+                setTimeout(() => {
+                    handleAIActivity();
+                }, 200);
+            }
+        }
+    });
+    disposables.push(disposable7);
     
     // NEW: Polling mechanism as backup detection
     const pollingInterval = initializePollingDetection(handleAIActivity, debugChannel);

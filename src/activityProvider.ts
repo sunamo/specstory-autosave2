@@ -304,7 +304,18 @@ export class AIActivityProvider implements vscode.WebviewViewProvider {
                     });
 
                     // Separate current notifikace (non-SpecStory) from SpecStory prompts
-                    const currentNotifications = this._prompts.filter(p => !p.timestamp.includes('#') || p.timestamp.includes(' - '));
+                    // Remove temporary "New AI prompt detected" entries when real SpecStory data is available
+                    const currentNotifications = this._prompts.filter(p => {
+                        // Keep entries that are NOT temporary placeholders
+                        const isTemporary = (p.fullContent && p.fullContent.includes('New AI prompt detected!')) || 
+                                          (p.shortPrompt && p.shortPrompt.includes('New AI prompt detected'));
+                        
+                        // Only keep non-temporary entries or entries with proper timestamps
+                        return !isTemporary && (!p.timestamp.includes('#') || p.timestamp.includes(' - '));
+                    });
+                    
+                    this.writeDebugLog(`Filtered out temporary entries, keeping ${currentNotifications.length} real notifications`);
+                    logDebug(`Filtered out temporary entries, keeping ${currentNotifications.length} real notifications`);
                     
                     // Combine: current notifications first, then SpecStory prompts
                     this._prompts = [...currentNotifications, ...specstoryPrompts];
