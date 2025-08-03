@@ -25,10 +25,14 @@
 - Žádné duplikáty, zálohy nebo temp soubory!
 
 ### 🔨 BUILD na konci každého promptu
-- Po dokončení všech změn v rámci jednoho promptu spusť `pnpm run compile`
-- Nemusíš buildovat po každém řádku, ale vždy na konci promptu
-- Pokud build selže, OKAMŽITĚ oprav chyby a znovu builduj
-- NIKDY nerob commit dokud build neprošel úspěšně
+- **NIKDY nespouštěj `pnpm run compile` zvlášť!**
+- **WORKFLOW**: Zvyš verzi → spusť `.\install.ps1`
+- Pokud build v install.ps1 selže:
+  1. Sniž verzi zpět
+  2. Oprav chyby
+  3. Zvyš verzi znovu
+  4. Spusť `.\install.ps1` znovu
+- install.ps1 obsahuje build, takže kompilace zvlášť je zbytečná
 - **COMMIT AŽ PO ÚSPĚŠNÉM BUILDU** - aby všechny verze byly buildable
 
 ### � RELEASE na konci každého promptu

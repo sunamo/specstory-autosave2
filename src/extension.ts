@@ -185,9 +185,9 @@ function initializeCopilotMonitoring() {
         const shouldUsePattern = enablePattern || (detectionLevel === 'advanced' || detectionLevel === 'aggressive');
         const shouldUseCodeInsertion = enableCodeInsertion || (detectionLevel === 'aggressive');
         const shouldUseMemory = enableMemory || (detectionLevel === 'aggressive');
-        const shouldUseTerminal = enableTerminal || (detectionLevel === 'aggressive');
-        const shouldUseFileSystem = enableFileSystem || (detectionLevel === 'aggressive');
-        const shouldUseKeyboardActivity = enableKeyboardActivity || (detectionLevel === 'aggressive');
+        const shouldUseTerminal = enableTerminal; // Only when explicitly enabled
+        const shouldUseFileSystem = enableFileSystem; // Only when explicitly enabled  
+        const shouldUseKeyboardActivity = enableKeyboardActivity; // Only when explicitly enabled
         
         if (shouldUseCommandHook || shouldUseWebview || shouldUsePanelFocus) {
             initializeBasicDetection(shouldUseCommandHook, shouldUseWebview, shouldUsePanelFocus);
@@ -666,7 +666,8 @@ function initializeAggressiveDetection(shouldUseCodeInsertion: boolean = false, 
             if (e.contentChanges.length > 0) {
                 const totalChars = e.contentChanges.reduce((sum, change) => sum + change.text.length, 0);
                 
-                if (totalChars > 10) { // Rapid typing detection
+                // Only detect very large insertions (typical for AI code generation)
+                if (totalChars > 200) { // Much higher threshold - AI typically generates lots of code at once
                     keyPressCount += totalChars;
                     
                     if (keyPressTimer) {
@@ -674,16 +675,16 @@ function initializeAggressiveDetection(shouldUseCodeInsertion: boolean = false, 
                     }
                     
                     keyPressTimer = setTimeout(() => {
-                        if (keyPressCount > 100) { // Large amount of text in short time
+                        if (keyPressCount > 500) { // Very large amount of text - likely AI generated
                             const now = Date.now();
-                            if (now - lastDetectedTime > 1000) {
+                            if (now - lastDetectedTime > 5000) { // Longer cooldown to prevent spam
                                 lastDetectedTime = now;
                                 debugChannel.appendLine(`[DEBUG] 🚀 KEYBOARD ACTIVITY DETECTION! (${keyPressCount} chars)`);
                                 handleAIActivity();
                             }
                         }
                         keyPressCount = 0;
-                    }, 500);
+                    }, 2000); // Longer timeout to accumulate more changes
                 }
             }
         });
@@ -719,7 +720,7 @@ function showAINotificationImmediately() {
     const message = config.get<string>('aiNotificationMessage', defaultMessage);
     
     debugChannel.appendLine('[DEBUG] Showing AI notification immediately');
-    debugChannel.appendLine(`[DEBUG] Message: ${message.substring(0, 50)}...`);
+    debugChannel.appendLine(`[DEBUG] Message: ${message}`);
     
     // Clear any existing countdown
     if (countdownTimer) {

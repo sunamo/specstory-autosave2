@@ -1,4 +1,27 @@
-# Change Log
+# Chan# Changelog
+
+## [1.1.7] - 2025-08-03
+### Fixed
+- Keyboard Activity Detection se nyní nikdy neaktivuje automaticky
+- Spouští se pouze když je explicitně povolena v nastavení
+- Opraveno nežádoucí spouštění i při `KeyboardActivity=false`
+
+### Updated
+- Aktualizována AI instructions: NIKDY nespouštět `pnpm run compile` zvlášť
+- Workflow: zvyš verzi → `.\install.ps1` → pokud selže: sniž verzi, oprav, zvyš znovu
+
+## [1.1.6] - 2025-08-03
+### Fixed
+- **Keyboard Activity Detection** se nyní aktivuje pouze když je explicitně povolena v nastavení
+- **Terminal a File System Detection** se také aktivují pouze když jsou explicitně povoleny
+- **Aggressive detection level** nyní neaktivuje experimentální metody automaticky
+- Sníženo množství debug logů - logy se nebudou aktualizovat při běžném psaní
+
+### Changed
+- Experimentální detekční metody (Terminal, FileSystem, KeyboardActivity) jsou nyní dostupné pouze na explicitní žádost
+- Aggressive level používá pouze: CommandHook + Webview + PanelFocus + Pattern + CodeInsertion + Memory
+
+## [1.1.5] - 2025-08-03Log
 
 All notable changes to the "specstory-autosave" extension will be documented in this file.
 
