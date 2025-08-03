@@ -12,13 +12,15 @@ function initializeSpecStoryWatcher(handleAIActivity: () => void, debugChannel: 
         
         const onSpecStoryChange = (uri: vscode.Uri) => {
             const now = Date.now();
-            // Debounce rapid file changes but allow immediate detection
-            if (now - lastFileChange > 500) {
+            // Reduce debounce time for faster detection
+            if (now - lastFileChange > 100) { // Reduced from 500ms to 100ms
                 lastFileChange = now;
                 logDebug(`📝 SpecStory file changed: ${uri.fsPath}`);
                 logDebug('🚀 SPECSTORY FILE DETECTION!');
                 logAIActivity('AI activity detected via SpecStory file change');
                 handleAIActivity();
+            } else {
+                logDebug(`📝 SpecStory file change ignored (debounce): ${uri.fsPath} (${now - lastFileChange}ms ago)`);
             }
         };
         
@@ -191,6 +193,11 @@ function initializePollingDetection(handleAIActivity: () => void, debugChannel: 
                             logAIActivity(`AI activity detected via polling (${newFiles} new files)`);
                             lastSpecStoryCount = mdFiles.length;
                             handleAIActivity();
+                        } else {
+                            // Debug: log file count periodically
+                            if (Math.random() < 0.05) { // 5% chance to log
+                                logDebug(`📊 Polling check: ${mdFiles.length} files (no change)`);
+                            }
                         }
                         
                     } catch {
@@ -200,9 +207,9 @@ function initializePollingDetection(handleAIActivity: () => void, debugChannel: 
             } catch (error) {
                 // Ignore polling errors to avoid spam
             }
-        }, 2000); // Check every 2 seconds
+        }, 500); // Check every 500ms for faster detection
         
-        logDebug('📊 Polling detection initialized (2s interval)');
+        logDebug('📊 Fast polling detection initialized (500ms interval)');
         return pollingInterval;
     } catch (error) {
         logDebug(`⚠️ Polling detection failed: ${error}`);
