@@ -722,8 +722,8 @@ async function generateSmartNotificationMessage(): Promise<string> {
     const customMessage = config.get<string>('aiNotificationMessage', '');
     const defaultMessage = 'AI prompt detected! Please check:\n• Did AI understand your question correctly?\n• If working with HTML, inspect for invisible elements\n• Verify the response quality and accuracy';
     
-    // If user has custom message or smart notifications are disabled, use their message or default
-    if (!enableSmartNotifications || customMessage !== defaultMessage) {
+    // If user has non-empty custom message or smart notifications are disabled, use their message or default
+    if (!enableSmartNotifications || (customMessage && customMessage.trim() !== '')) {
         return customMessage || defaultMessage;
     }
     
@@ -735,16 +735,16 @@ async function generateSmartNotificationMessage(): Promise<string> {
             return defaultMessage;
         }
         
-        // Read latest SpecStory conversation
-        const latestConversation = await readLatestSpecStoryConversation(specstoryPath);
-        if (!latestConversation) {
+        // Read latest 3 SpecStory conversations
+        const recentConversations = await readRecentSpecStoryConversations(specstoryPath, 3);
+        if (!recentConversations || recentConversations.length === 0) {
             debugChannel.appendLine('[DEBUG] No recent conversations found, using default message');
             return defaultMessage;
         }
         
-        // Generate context-aware message
-        const smartMessage = generateContextAwareMessage(latestConversation);
-        debugChannel.appendLine(`[DEBUG] Generated smart message based on: ${latestConversation.topic}`);
+        // Generate message with recent prompts
+        const smartMessage = generateMessageWithRecentPrompts(recentConversations);
+        debugChannel.appendLine(`[DEBUG] Generated smart message based on ${recentConversations.length} recent conversations`);
         return smartMessage;
         
     } catch (error) {
@@ -782,6 +782,150 @@ async function findSpecStoryHistoryPath(): Promise<string | null> {
     }
     
     return null;
+}
+
+async function readRecentSpecStoryConversations(historyPath: string, count: number = 3): Promise<{content: string, topic: string, timestamp: string}[] | null> {
+    try {
+        const historyUri = vscode.Uri.file(historyPath);
+        const files = await vscode.workspace.fs.readDirectory(historyUri);
+        
+        // Filter only .md files and sort by name (which includes timestamp)
+        const mdFiles = files
+            .filter(([name, type]) => name.endsWith('.md') && type === vscode.FileType.File)
+            .map(([name]) => name)
+            .sort()
+            .reverse() // Latest first
+            .slice(0, count); // Take only requested count
+        
+        if (mdFiles.length === 0) {
+            return null;
+        }
+        
+        const conversations = [];
+        
+        for (const fileName of mdFiles) {
+            const fileUri = vscode.Uri.joinPath(historyUri, fileName);
+            const fileContent = await vscode.workspace.fs.readFile(fileUri);
+            const content = Buffer.from(fileContent).toString('utf8');
+            
+            // Extract topic from filename: 2025-08-03_07-59Z-user-greeting-and-request-for-assistance.md
+            const topicMatch = fileName.match(/\d{4}-\d{2}-\d{2}_\d{2}-\d{2}Z-(.+)\.md$/);
+            const topic = topicMatch ? topicMatch[1].replace(/-/g, ' ') : 'conversation';
+            
+            // Extract timestamp
+            const timestampMatch = fileName.match(/(\d{4}-\d{2}-\d{2}_\d{2}-\d{2}Z)/);
+            const timestamp = timestampMatch ? timestampMatch[1] : '';
+            
+            conversations.push({ content, topic, timestamp });
+        }
+        
+        return conversations;
+        
+    } catch (error) {
+        debugChannel.appendLine(`[DEBUG] Error reading SpecStory conversations: ${error}`);
+        return null;
+    }
+}
+
+function generateMessageWithRecentPrompts(conversations: {content: string, topic: string, timestamp: string}[]): string {
+    if (conversations.length === 0) {
+        return 'AI prompt detected! Please check:\n• Did AI understand your question correctly?\n• If working with HTML, inspect for invisible elements\n• Verify the response quality and accuracy';
+    }
+    
+    // Extract recent user prompts from conversations
+    const recentPrompts: string[] = [];
+    
+    for (const conversation of conversations) {
+        const content = conversation.content;
+        
+        // Split by _**User**_ to find user messages
+        const userMessages = content.split('_**User**_');
+        
+        for (let i = 1; i < userMessages.length; i++) { // Skip first split (before first user message)
+            const userPart = userMessages[i];
+            // Extract text until next _**Assistant**_ or end
+            const endMatch = userPart.indexOf('_**Assistant**_');
+            const userText = endMatch !== -1 ? userPart.substring(0, endMatch) : userPart;
+            
+            // Clean up the text (remove ---, newlines, extra spaces)
+            const cleanText = userText
+                .replace(/---/g, '')
+                .replace(/\n+/g, ' ')
+                .trim();
+            
+            if (cleanText && cleanText.length > 10) { // Only meaningful prompts
+                recentPrompts.push(cleanText);
+            }
+        }
+    }
+    
+    // Take last 3 prompts
+    const lastPrompts = recentPrompts.slice(-3);
+    
+    if (lastPrompts.length === 0) {
+        return 'AI prompt detected! Please check:\n• Did AI understand your question correctly?\n• If working with HTML, inspect for invisible elements\n• Verify the response quality and accuracy';
+    }
+    
+    // Generate context-aware message with recent prompts
+    const contextAnalysis = analyzePromptsContext(lastPrompts);
+    let message = `AI právě odpověděl! Zkontroluj ${contextAnalysis.focus}:\n`;
+    
+    // Add recent prompts
+    message += '\n📝 Poslední prompty:\n';
+    for (let i = 0; i < lastPrompts.length; i++) {
+        const prompt = lastPrompts[i];
+        const shortPrompt = prompt.length > 80 ? prompt.substring(0, 80) + '...' : prompt;
+        message += `${i + 1}. ${shortPrompt}\n`;
+    }
+    
+    // Add context-specific checks
+    message += `\n✅ Zkontroluj:\n${contextAnalysis.checks}`;
+    
+    return message;
+}
+
+function analyzePromptsContext(prompts: string[]): {focus: string, checks: string} {
+    const allText = prompts.join(' ').toLowerCase();
+    
+    if (allText.includes('debug') || allText.includes('error') || allText.includes('bug') || allText.includes('fix')) {
+        return {
+            focus: 'debugging',
+            checks: '• Opravil skutečnou příčinu problému?\n• Nezavedl nové bugy?\n• Testuj edge cases'
+        };
+    }
+    
+    if (allText.includes('html') || allText.includes('css') || allText.includes('style') || allText.includes('design')) {
+        return {
+            focus: 'UI/design',
+            checks: '• Responzivní design\n• Accessibility\n• Cross-browser kompatibilita'
+        };
+    }
+    
+    if (allText.includes('database') || allText.includes('sql') || allText.includes('query')) {
+        return {
+            focus: 'databázi',
+            checks: '• Data integrity\n• Performance impact\n• Backup strategie'
+        };
+    }
+    
+    if (allText.includes('api') || allText.includes('endpoint') || allText.includes('request')) {
+        return {
+            focus: 'API',
+            checks: '• Error handling\n• Security\n• API dokumentace'
+        };
+    }
+    
+    if (allText.includes('performance') || allText.includes('optimize') || allText.includes('slow')) {
+        return {
+            focus: 'performance',
+            checks: '• Skutečné zrychlení?\n• Memory leaks?\n• Regrese funkcionalit?'
+        };
+    }
+    
+    return {
+        focus: 'kód',
+        checks: '• Splňuje požadavky?\n• Žádné side effects?\n• Dokumentace aktuální?'
+    };
 }
 
 async function readLatestSpecStoryConversation(historyPath: string): Promise<{content: string, topic: string, timestamp: string} | null> {
@@ -872,24 +1016,14 @@ async function showAINotificationImmediately() {
         countdownTimer = undefined;
     }
     
-    // Try both showWarningMessage and showInformationMessage as fallback
     debugChannel.appendLine('[DEBUG] About to call vscode.window.showWarningMessage...');
     
-    // Primary notification method
+    // Show single notification - no fallback to avoid duplicates
     const notificationPromise = vscode.window.showWarningMessage(message, 'Everything OK', 'Will Check Status');
-    
-    // Fallback with Information message after 2 seconds if no response
-    const fallbackTimer = setTimeout(() => {
-        debugChannel.appendLine('[DEBUG] Warning message might not have shown, trying Information message fallback...');
-        vscode.window.showInformationMessage(`🤖 ${message}`, 'Got it!', 'Will Check').then((fallbackSelection) => {
-            debugChannel.appendLine(`[DEBUG] Fallback notification result: ${fallbackSelection || 'DISMISSED'}`);
-        });
-    }, 2000);
     
     debugChannel.appendLine('[DEBUG] showWarningMessage called, waiting for response...');
     
     notificationPromise.then((selection) => {
-        clearTimeout(fallbackTimer); // Cancel fallback if primary worked
         debugChannel.appendLine(`[DEBUG] User selected: ${selection || 'DISMISSED'}`);
         if (selection === 'Everything OK') {
             debugChannel.appendLine('[DEBUG] User confirmed AI response is correct - everything OK');
@@ -900,7 +1034,6 @@ async function showAINotificationImmediately() {
         }
         debugChannel.appendLine('[DEBUG] AI notification dismissed');
     }, (error: any) => {
-        clearTimeout(fallbackTimer);
         debugChannel.appendLine(`[DEBUG] ERROR in notification promise: ${error}`);
     });
     

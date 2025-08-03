@@ -1,5 +1,31 @@
 # Chan# Changelog
 
+## [1.1.10] - 2025-08-03
+### Fixed
+- **Jedna notifikace** - odstraněn Information message fallback pro zabránění duplicitním notifikacím
+- **Chytré zprávy** - opraveno načítání prázdných custom messages (`""`)
+- **Poslední 3 prompty** - nyní zobrazuje 3 poslední uživatelské prompty v notifikaci
+
+### Enhanced
+- **Kontextová analýza** - lepší rozpoznání typu práce (debugging, UI, database, API, performance)
+- **Formát notifikace**:
+  ```
+  AI právě odpověděl! Zkontroluj [typ práce]:
+  
+  📝 Poslední prompty:
+  1. [první prompt...]
+  2. [druhý prompt...]  
+  3. [třetí prompt...]
+  
+  ✅ Zkontroluj:
+  • [specifické kontroly podle kontextu]
+  ```
+
+### Technical
+- Čte až 3 poslední SpecStory konverzace
+- Extrahuje user prompty ze SpecStory markdown formátu
+- Generuje kontextové kontrolní body podle typu práce
+
 ## [1.1.9] - 2025-08-03
 ### Added
 - **🤖 Chytré notifikace** - analýza SpecStory konverzací pro kontextové hlášky
