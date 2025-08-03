@@ -44,7 +44,7 @@ if ($vsixFiles.Count -gt 0) {
 
 # Build the extension
 Write-Host "3. Building extension..." -ForegroundColor Yellow
-npm run compile
+pnpm run compile
 if ($LASTEXITCODE -ne 0) {
     Write-Host "❌ Build failed!" -ForegroundColor Red
     exit 1

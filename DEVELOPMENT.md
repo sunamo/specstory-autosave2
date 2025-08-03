@@ -11,7 +11,7 @@
 ```powershell
 # 1. Aktualizace verze (např. z 1.0.8 na 1.0.9)
 # Uprav package.json manually nebo použij:
-npm version patch
+pnpm version patch
 
 # 2. Aktualizuj CHANGELOG.md
 # Přidej novou sekci s verzí a změnami
@@ -22,10 +22,19 @@ npm version patch
 # - git add .
 # - git commit -m "v[version]"
 # - git push origin master
-# - npm run compile
+# - pnpm run compile
 # - vsce package
 # - VS Code extension install
 ```
+
+## Package Manager
+
+**⚠️ Tento projekt používá pnpm, ne npm!**
+- Package manager: `pnpm@10.10.0`
+- Všechny příkazy používaj `pnpm` místo `npm`
+- Instalace: `pnpm install`
+- Build: `pnpm run compile`
+- Watch: `pnpm run watch`
 
 ## Development Workflow
 
@@ -57,6 +66,11 @@ npm version patch
 - .vscode/ obsahuje launch.json, tasks.json a settings.json pro development
 - Tyto soubory jsou důležité pro správné fungování projektu
 - Ostatní vývojáři je potřebují pro debugging a building
+
+**⚠️ AI Assistant Instructions:**
+- Viz `.github/ai-instructions.md` pro automatizované příkazy
+- Všechny příkazy spouštěj bez potvrzení od uživatele
+- Používej pouze pnpm, nikdy npm
 
 ## Testing
 
