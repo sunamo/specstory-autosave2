@@ -25,8 +25,8 @@ export function handleAIActivity(
 ) {
     const now = Date.now();
     
-    // Debouncing - prevent multiple triggers within 2 seconds
-    if (lastDetectedTime && (now - lastDetectedTime.value < 2000)) {
+    // Debouncing - prevent multiple triggers within 5 seconds
+    if (lastDetectedTime && (now - lastDetectedTime.value < 5000)) {
         debugChannel.appendLine(`[DEBUG] AI activity ignored - too soon (${now - lastDetectedTime.value}ms since last detection)`);
         return;
     }

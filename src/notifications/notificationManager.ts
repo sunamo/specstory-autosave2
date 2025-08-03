@@ -31,8 +31,7 @@ export async function showAINotificationImmediately(
         const action = await vscode.window.showInformationMessage(
             message.replace(/\n/g, ' | '), // Replace newlines with separators for single-line display
             'Check Status',
-            'Everything OK',
-            'Dismiss'
+            'Everything OK'
         );
         
         switch (action) {
@@ -41,9 +40,6 @@ export async function showAINotificationImmediately(
                 break;
             case 'Everything OK':
                 debugChannel.appendLine('[DEBUG] User confirmed AI response is correct - everything OK');
-                break;
-            case 'Dismiss':
-                debugChannel.appendLine('[DEBUG] User dismissed notification');
                 break;
         }
     } else if (displayType === 'activitybar') {

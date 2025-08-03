@@ -236,7 +236,7 @@ function initializeSpecStoryMonitoring(context: vscode.ExtensionContext) {
                 
                 // Trigger AI activity notification
                 handleAIActivity(aiPromptCounter, debugChannel, async () => {
-                    const message = `SpecStory history with AI conversation detected!\n\nFile: ${document.fileName}\n\nPlease verify the AI responses are accurate and complete.`;
+                    const message = await generateSmartNotificationMessage(debugChannel);
                     await showAINotificationImmediately(message, aiActivityProvider, aiNotificationPanel, debugChannel, countdownTimer);
                 }, () => updateStatusBar(statusBarItem, aiPromptCounter), lastDetectedTime);
             } else {
@@ -271,7 +271,7 @@ function initializeSpecStoryMonitoring(context: vscode.ExtensionContext) {
                         logDebug('🔥 New AI content detected in SpecStory file changes');
                         
                         handleAIActivity(aiPromptCounter, debugChannel, async () => {
-                            const message = `SpecStory file updated with new AI content!\n\nFile: ${event.document.fileName}\nChanges: ${totalChanges} characters\n\nNew AI responses detected - please review for accuracy.`;
+                            const message = await generateSmartNotificationMessage(debugChannel);
                             await showAINotificationImmediately(message, aiActivityProvider, aiNotificationPanel, debugChannel, countdownTimer);
                         }, () => updateStatusBar(statusBarItem, aiPromptCounter), lastDetectedTime);
                     }
@@ -300,7 +300,7 @@ function initializeSpecStoryMonitoring(context: vscode.ExtensionContext) {
                     logAIActivity('Recent SpecStory file modification detected');
                     
                     handleAIActivity(aiPromptCounter, debugChannel, async () => {
-                        const message = `Recent SpecStory activity detected!\n\nFile: ${editor.document.fileName}\nModified: ${stats.mtime.toLocaleString()}\n\nPlease check the latest AI responses.`;
+                        const message = await generateSmartNotificationMessage(debugChannel);
                         await showAINotificationImmediately(message, aiActivityProvider, aiNotificationPanel, debugChannel, countdownTimer);
                     }, () => updateStatusBar(statusBarItem, aiPromptCounter), lastDetectedTime);
                 }
