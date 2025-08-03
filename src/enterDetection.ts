@@ -1,11 +1,11 @@
 import * as vscode from 'vscode';
 
 let lastHandleTime = 0;
-const THROTTLE_DELAY = 1; // 1ms - zero delay
+const THROTTLE_DELAY = 500; // 500ms - rozumné zpoždění pro zamezení spamu
 
 /**
- * REVOLUTIONARY DETECTION SYSTEM - ZERO DELAY
- * Ultra-aggressive monitoring všech VS Code events
+ * BALANCED DETECTION SYSTEM
+ * Rozumná detekce s ochranou proti spam
  */
 let disposables: vscode.Disposable[] = [];
 
@@ -13,45 +13,51 @@ export function initializeEnterKeyDetection(
     handleAIActivity: () => void,
     debugChannel: vscode.OutputChannel
 ): vscode.Disposable[] {
-    debugChannel.appendLine('🚀 REVOLUTIONARY ZERO-DELAY DETECTION ACTIVATED');
+    debugChannel.appendLine('🚀 BALANCED DETECTION ACTIVATED - Anti-spam protected');
     
     disposables.forEach(d => d.dispose());
     disposables = [];
 
-    // METHOD 1: ULTRA-AGGRESSIVE TEXT MONITORING
+    // METHOD 1: SMART TEXT MONITORING - jen chat-související soubory
     const textWatcher = vscode.workspace.onDidChangeTextDocument((e) => {
-        const now = Date.now();
-        if (now - lastHandleTime < THROTTLE_DELAY) return;
-        lastHandleTime = now;
+        try {
+            const uri = e.document.uri;
+            
+            // POUZE chat-související URI - ne náš vlastní output!
+            const isChatRelated = uri.scheme === 'untitled' || 
+                                uri.toString().includes('copilot') ||
+                                uri.toString().includes('chat');
+            
+            // IGNORUJ náš vlastní output channel!
+            if (uri.toString().includes('output') || 
+                uri.toString().includes('SpecStory') ||
+                !isChatRelated) {
+                return;
+            }
 
-        debugChannel.appendLine(`📝 TEXT CHANGE at ${new Date().toISOString()}`);
-        handleAIActivity();
+            for (const change of e.contentChanges) {
+                // Detekce Enter nebo čištění textu
+                const isEnter = change.text === '\n' || change.text === '\r\n';
+                const isClearing = change.text === '' && change.rangeLength > 3;
+                
+                if (isEnter || isClearing) {
+                    const now = Date.now();
+                    if (now - lastHandleTime < THROTTLE_DELAY) return;
+                    lastHandleTime = now;
+
+                    debugChannel.appendLine(`� CHAT: ${isEnter ? 'Enter' : 'Clear'} detected`);
+                    handleAIActivity();
+                    break;
+                }
+            }
+        } catch (error) {
+            // Tichá chyba - nelogovat do output
+        }
     });
     disposables.push(textWatcher);
 
-    // METHOD 2: ACTIVE EDITOR CHANGES
-    const editorWatcher = vscode.window.onDidChangeActiveTextEditor(() => {
-        const now = Date.now();
-        if (now - lastHandleTime < THROTTLE_DELAY) return;
-        lastHandleTime = now;
-
-        debugChannel.appendLine(`📄 EDITOR CHANGE at ${new Date().toISOString()}`);
-        handleAIActivity();
-    });
-    disposables.push(editorWatcher);
-
-    // METHOD 3: SELECTION CHANGES
-    const selectionWatcher = vscode.window.onDidChangeTextEditorSelection(() => {
-        const now = Date.now();
-        if (now - lastHandleTime < THROTTLE_DELAY) return;
-        lastHandleTime = now;
-
-        debugChannel.appendLine(`🔍 SELECTION CHANGE at ${new Date().toISOString()}`);
-        handleAIActivity();
-    });
-    disposables.push(selectionWatcher);
-
-    debugChannel.appendLine('🎯 3 ULTRA-AGGRESSIVE METHODS ACTIVE - ZERO DELAY!');
+    debugChannel.appendLine('🎯 SMART DETECTION ACTIVE - Protected against spam');
+    return disposables;
     return disposables;
 }
 
