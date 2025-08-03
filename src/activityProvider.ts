@@ -233,15 +233,16 @@ export class AIActivityProvider implements vscode.WebviewViewProvider {
         const lines = content.split('\n').filter(line => line.trim().length > 0);
         this.writeDebugLog(`Total non-empty lines: ${lines.length}`);
         
-        // Log first 20 lines for analysis
-        this.writeDebugLog(`=== FIRST 20 LINES ===`);
-        lines.slice(0, 20).forEach((line, index) => {
-            this.writeDebugLog(`Line ${index + 1}: "${line}"`);
+        // Log LAST 20 lines for analysis (newest prompts are at the end!)
+        this.writeDebugLog(`=== LAST 20 LINES (NEWEST PROMPTS) ===`);
+        lines.slice(-20).forEach((line, index) => {
+            this.writeDebugLog(`Line ${lines.length - 20 + index + 1}: "${line}"`);
         });
         
         const userPrompts = [];
         
-        for (let i = 0; i < lines.length; i++) {
+        // PROCESS LINES IN REVERSE ORDER - newest prompts are at the end!
+        for (let i = lines.length - 1; i >= 0; i--) {
             const line = lines[i].trim();
             const lowerLine = line.toLowerCase();
             
@@ -345,14 +346,15 @@ export class AIActivityProvider implements vscode.WebviewViewProvider {
             }
         }
 
-        this.writeDebugLog(`*** FINAL: Found ${userPrompts.length} user requests`);
+        this.writeDebugLog(`*** FINAL: Found ${userPrompts.length} user requests (processed in reverse order)`);
 
         // Transform user prompts to display format with SIMPLE NUMBERING
+        // Since we processed in reverse order, userPrompts[0] is now the newest
         this._prompts = userPrompts.map((prompt, index) => {
             const shortPrompt = prompt.length > 120 ? prompt.substring(0, 120) + '...' : prompt;
             
-            // Use simple numbering instead of timestamps since SpecStory doesn't have them
-            const displayNumber = `#${userPrompts.length - index}`;
+            // Use simple numbering - index 0 is newest, so start from userPrompts.length
+            const displayNumber = `#${index + 1}`;
 
             return {
                 timestamp: displayNumber,
@@ -369,12 +371,12 @@ export class AIActivityProvider implements vscode.WebviewViewProvider {
             this._prompts = this._prompts.slice(0, maxPrompts);
         }
 
-        this.writeDebugLog(`Successfully processed ${this._prompts.length} prompts for Activity Bar`);
+        this.writeDebugLog(`Successfully processed ${this._prompts.length} prompts for Activity Bar (newest first)`);
         
         // Force immediate update
         this._updateView();
         
-        logInfo(`Successfully processed ${this._prompts.length} prompts for Activity Bar`);
+        logInfo(`Successfully processed ${this._prompts.length} prompts for Activity Bar (newest first)`);
     }
 
     private writeDebugLog(message: string) {
