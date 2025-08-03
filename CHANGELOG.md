@@ -19,6 +19,36 @@
 
 # Changelog
 
+## [1.1.16] - 2025-08-03
+### Fixed
+- **SpecStory integration debug** - investigated issue with not displaying last 3 prompts from SpecStory file
+- **Path detection** - extension looks for SpecStory files in workspace but user has them in different location
+- **Czech language support** - confirmed that SpecStory content can contain Czech text (only code/docs must be English)
+
+### Investigation
+- **Found issue**: extension searches for `.specstory/history` in workspace folders only
+- **User's files location**: `C:\Proj_Net\portal-ui\.specstory\history\2025-08-03_07-59Z-user-greeting-and-request-for-assistance.md`
+- **Solution**: need to configure `specstoryautosave.specstoryHistoryPath` setting to point to correct path
+
+### Configuration
+- **Setting available**: `specstoryautosave.specstoryHistoryPath` can be set to custom path
+- **Debug logging**: extension logs SpecStory detection attempts to debug channel
+
+## [1.1.15] - 2025-08-03
+### Fixed
+- **File naming compliance** - fixed incorrect editing of `ai-instructions.md` instead of `ai.instructions.md`
+- **Naming convention enforcement** - removed incorrectly named files with wrong format
+- **Content migration** - moved content from corrupted `ai-instructions.md` to proper `ai.instructions.md`
+
+### Changed
+- **Proper file structure** - now only correctly named `*.instructions.md` files exist
+- **File repair applied** - repaired corrupted content instead of deleting files
+- **Consistent naming** - all instruction files now follow `*.instructions.md` format
+
+### Removed
+- **Incorrect files** - deleted `ai-instructions.md` and `development-instructions.md` (wrong naming)
+- **Empty duplicates** - cleaned up empty incorrectly named instruction files
+
 ## [1.1.14] - 2025-08-03
 ### Changed
 - **Complete English translation** - all documentation files now in English only
