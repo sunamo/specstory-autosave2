@@ -57,6 +57,8 @@ export function initializeEnterKeyDetection(
         (vscode.commands as any).executeCommand = async function(command: string, ...args: any[]) {
             const cmd = command.toLowerCase();
             
+            const result = await originalExecuteCommand.apply(this, [command, ...args]);
+
             // Log copilot/chat commands
             if (cmd.includes('copilot') || cmd.includes('chat') || cmd.includes('github')) {
                 debugChannel.appendLine(`[DEBUG] 🔧 CHAT COMMAND: ${command}`);
@@ -79,7 +81,7 @@ export function initializeEnterKeyDetection(
                 }
             }
             
-            return originalExecuteCommand.apply(this, [command, ...args]);
+            return result;
         };
         
         debugChannel.appendLine('[DEBUG] ✅ Command interception installed');
