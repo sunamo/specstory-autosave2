@@ -98,8 +98,8 @@ export function initializeBasicDetection(
     // });
     // disposables.push(disposableUniversal);
     
-    // Method 1: Monitor chat panel visibility and focus (IMPROVED)
-    if (enableWebview) {
+    // Method 1: Monitor chat panel visibility and focus (DISABLED - testing for duplicates)
+    if (false && enableWebview) {
         const disposable1 = vscode.window.onDidChangeActiveTextEditor((editor) => {
             if (!editor) return;
             
@@ -141,8 +141,8 @@ export function initializeBasicDetection(
         // disposables.push(disposable1b);
     }
     
-    // Method 2: Monitor panel state changes (if enabled)
-    if (enablePanelFocus) {
+    // Method 2: Monitor panel state changes (DISABLED - testing for duplicates)
+    if (false && enablePanelFocus) {
         // DISABLED: Window state monitoring - causes duplicate detections
         // const disposable2 = vscode.window.onDidChangeWindowState((state) => {
         //     if (state.focused) {
