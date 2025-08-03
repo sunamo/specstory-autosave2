@@ -205,7 +205,26 @@ export class AIActivityProvider implements vscode.WebviewViewProvider {
 
             this.writeDebugLog(`Loaded ${conversations.length} conversations successfully`);
             logDebug(`Loaded ${conversations.length} conversations successfully`);
-            this.processSpecStoryContent(conversations[0].content, conversations[0].topic);
+            
+            // DEBUG: Check conversation structure
+            const conv = conversations[0];
+            this.writeDebugLog(`Conversation structure: ${JSON.stringify(Object.keys(conv))}`);
+            this.writeDebugLog(`Conversation topic: "${conv.topic}"`);
+            this.writeDebugLog(`Conversation content length: ${conv.content ? conv.content.length : 'undefined'}`);
+            
+            if (!conv.content) {
+                this.writeDebugLog('ERROR: Conversation content is missing!');
+                logError('Conversation content is missing!');
+                return;
+            }
+            
+            if (!conv.topic) {
+                this.writeDebugLog('ERROR: Conversation topic is missing!');
+                logError('Conversation topic is missing!');
+                return;
+            }
+            
+            this.processSpecStoryContent(conv.content, conv.topic);
 
         } catch (error) {
             this.writeDebugLog(`Critical error in loadPromptsFromSpecStory: ${error}`);
