@@ -1,28 +1,28 @@
-# Development Instructions / Instrukce pro vývoj
+# Development Instructions
 
-## Version Management / Správa verzí
+## Version Management
 
-**DŮLEŽITÉ: Pri každé nové verzi:**
-1. Aktualizuj číslo verze v `package.json`
-2. Aktualizuj `CHANGELOG.md` s popisem změn
-3. Spusť `.\install.ps1` - provede automaticky: build, git commit (jen při úspěšném buildu), git push, package a install
+**IMPORTANT: For each new version:**
+1. Update version number in `package.json`
+2. Update `CHANGELOG.md` with description of changes
+3. Run `.\install.ps1` - automatically performs: build, git commit (only on successful build), git push, package and install
 
-### Příkazy pro release nové verze:
+### Commands for new version release:
 ```powershell
-# 1. Aktualizace verze (např. z 1.0.8 na 1.0.9)
-# Uprav package.json manually nebo použij:
+# 1. Version update (e.g. from 1.0.8 to 1.0.9)
+# Edit package.json manually or use:
 pnpm version patch
 
-# 2. Aktualizuj CHANGELOG.md
-# Přidej novou sekci s verzí a změnami
+# 2. Update CHANGELOG.md
+# Add new section with version and changes
 
-# 3. Spusť celý release workflow jedním příkazem:
+# 3. Run complete release workflow with one command:
 .\install.ps1
-# Tento skript automaticky provede:
-# - Vyčištění starých .vsix
+# This script automatically performs:
+# - Clean old .vsix files
 # - pnpm run compile (BUILD FIRST!)
 # - git add .
-# - git commit -m "v[version]" (jen při úspěšném buildu)
+# - git commit -m "v[version]" (only on successful build)
 # - git push origin master
 # - vsce package
 # - VS Code extension install
@@ -30,10 +30,10 @@ pnpm version patch
 
 ## Package Manager
 
-**⚠️ Tento projekt používá pnpm, ne npm!**
+**⚠️ This project uses pnpm, not npm!**
 - Package manager: `pnpm@10.10.0`
-- Všechny příkazy používaj `pnpm` místo `npm`
-- Instalace: `pnpm install`
+- Use `pnpm` instead of `npm` for all commands
+- Install: `pnpm install`
 - Build: `pnpm run compile`
 - Watch: `pnpm run watch`
 
@@ -47,7 +47,7 @@ pnpm version patch
 
 ### Quick Install & Test (Windows PowerShell)
 ```powershell
-# Kompletní release workflow v jednom příkazu
+# Complete release workflow in one command
 .\install.ps1
 ```
 
@@ -63,15 +63,15 @@ pnpm version patch
 
 ## Important Rules
 
-**⚠️ NIKDY nezahrnuj .vscode/ složku do .gitignore!**
-- .vscode/ obsahuje launch.json, tasks.json a settings.json pro development
-- Tyto soubory jsou důležité pro správné fungování projektu
-- Ostatní vývojáři je potřebují pro debugging a building
+**⚠️ NEVER include .vscode/ folder in .gitignore!**
+- .vscode/ contains launch.json, tasks.json and settings.json for development
+- These files are important for proper project functionality
+- Other developers need them for debugging and building
 
 **⚠️ AI Assistant Instructions:**
-- Viz `.github/ai-instructions.md` pro automatizované příkazy
-- Všechny příkazy spouštěj bez potvrzení od uživatele
-- Používej pouze pnpm, nikdy npm
+- See `.github/ai.instructions.md` for automated commands
+- Run all commands without user confirmation
+- Use only pnpm, never npm
 
 ## Testing
 

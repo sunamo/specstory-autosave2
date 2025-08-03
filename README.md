@@ -2,15 +2,15 @@
 
 🤖 **Intelligent VS Code extension that automatically saves GitHub Copilot Chat conversations and provides instant AI quality verification notifications.**
 
-## 🎯 Proč potřebujete toto rozšíření?
+## 🎯 Why Do You Need This Extension?
 
-**Stalo se vám že po AI chcete výsledek ale stále se jí nedaří splnit úkol?** Chcete mít přehled o tom jaká je historie vašich dotazů a jestli náhodou nezkoušíte na sílu něco co ani nepůjde? **Moje rozšíření vám pomůže zbytečně neztrácet čas.**
+**Have you ever found yourself wanting results from AI but it keeps failing to complete your task?** Do you want to have an overview of your query history and check if you're not trying to force something that won't work? **This extension helps you avoid wasting time unnecessarily.**
 
-### 🔍 Hlavní problémy které řeší:
-- ❌ **Ztracené prompty**: Nevíte co jste už zkoušeli
-- ❌ **Opakování chyb**: Ptáte se na stejné věci různě
-- ❌ **Časové ztráty**: Dlouhé neúspěšné konverzace s AI
-- ❌ **Chybějící přehled**: Nemáte historii svých dotazů
+### 🔍 Main Problems It Solves:
+- ❌ **Lost Prompts**: You don't know what you've already tried
+- ❌ **Repeating Mistakes**: You ask the same things in different ways
+- ❌ **Time Waste**: Long unsuccessful conversations with AI
+- ❌ **Missing Overview**: You don't have a history of your queries
 
 ## ✨ Key Features
 
@@ -116,13 +116,13 @@ This extension is designed to enhance your AI-assisted development workflow. If 
 
 ## 👨‍💻 Development
 
-Pro vývojáře: Při každé nové verzi nezapomeň:
-1. Aktualizovat číslo verze v `package.json`
-2. Udělat git commit s číslem verze (např. `git commit -m "v0.0.4"`)
-3. Udělat git push
-4. Vytvořit nový .vsix package
+For developers: Don't forget for each new version:
+1. Update version number in `package.json`
+2. Make git commit with version number (e.g. `git commit -m "v0.0.4"`)
+3. Make git push
+4. Create new .vsix package
 
-Detailní instrukce najdeš v `DEVELOPMENT.md`.
+Detailed instructions can be found in `DEVELOPMENT.md`.
 
 ---
 

@@ -1,52 +1,120 @@
-# Chan# Changelog
+# Changelog
+
+## [1.1.13] - 2025-08-03
+### Changed
+- **Complete English localization** - all .md and .instructions.md files now fully in English
+- **DEVELOPMENT.md translated** - all Czech text converted to English
+- **README.md translated** - improved English version with clear explanations
+- **CHANGELOG.md finalized** - all remaining Czech text translated to English
+
+### Added
+- **AI instructions fully English** - complete rewrite of ai.instructions.md in English
+- **Consistent documentation language** - all documentation now in English only
+- **Improved readability** - better English translations for technical terms
+
+### Technical
+- All user-facing and developer-facing documentation now in English
+- Consistent terminology across all documentation files
+- Maintained technical accuracy in translations
+
+# Changelog
+
+## [1.1.14] - 2025-08-03
+### Changed
+- **Complete English translation** - all documentation files now in English only
+- **AI instructions fully translated** - fixed corrupted header and mixed language content
+- **File repair policy** - added rule to never delete corrupted files, always repair them
+- **Language enforcement** - only cs.json allowed to contain non-English text
+
+### Added
+- **Critical language policy** - all output must be in English except localization files
+- **File repair rules** - think carefully and repair instead of delete
+- **Comprehensive translation** of DEVELOPMENT.md, README.md, CHANGELOG.md, ai.instructions.md
+
+### Fixed
+- **Corrupted ai.instructions.md** - repaired header and emoji display issues
+- **Mixed language content** - all Czech text translated to English
+- **File naming consistency** - maintained *.instructions.md format
+
+## [1.1.13] - 2025-08-03
+### Changed
+- **File naming convention** - renamed `ai-instructions.md` to `ai.instructions.md`
+- **Updated naming rules** - all instruction files must use `*.instructions.md` format
+- **Fixed references** - updated all file references to new naming convention
+
+### Added
+- **Critical naming rules** in AI instructions
+- **Proper file format**: `ai.instructions.md`, `development.instructions.md`, etc.
+- **Updated documentation** with correct file references
+
+### Technical
+- Moved `.github/ai-instructions.md` → `.github/ai.instructions.md`
+- Updated DEVELOPMENT.md and CHANGELOG.md references
+- Enforced consistent naming convention across all instruction files
+
+## [1.1.11] - 2025-08-03
+### Changed
+- **Full English localization** - all user-facing texts now use i18n/en.json
+- **CHANGELOG.md in English** - all documentation now in English only
+- **Smart notifications localized** - context-aware messages now properly localized
+
+### Added
+- **Localization rules** - added critical rules to AI instructions
+- **New i18n keys** for smart notifications (smartDebug, smartUI, smartDatabase, etc.)
+- **Proper i18n integration** for all notification messages
+
+### Technical
+- All hardcoded texts moved to i18n system
+- Fallback handling for i18n failures
+- Updated context analysis to return type for proper i18n key selection
 
 ## [1.1.10] - 2025-08-03
 ### Fixed
-- **Jedna notifikace** - odstraněn Information message fallback pro zabránění duplicitním notifikacím
-- **Chytré zprávy** - opraveno načítání prázdných custom messages (`""`)
-- **Poslední 3 prompty** - nyní zobrazuje 3 poslední uživatelské prompty v notifikaci
+- **Single notification** - removed Information message fallback to prevent duplicate notifications
+- **Smart messages** - fixed loading of empty custom messages (`""`)
+- **Last 3 prompts** - now displays 3 most recent user prompts in notification
 
 ### Enhanced
-- **Kontextová analýza** - lepší rozpoznání typu práce (debugging, UI, database, API, performance)
-- **Formát notifikace**:
+- **Context analysis** - improved recognition of work type (debugging, UI, database, API, performance)
+- **Notification format**:
   ```
-  AI právě odpověděl! Zkontroluj [typ práce]:
+  AI just responded! Check [work type]:
   
-  📝 Poslední prompty:
-  1. [první prompt...]
-  2. [druhý prompt...]  
-  3. [třetí prompt...]
+  📝 Recent prompts:
+  1. [first prompt...]
+  2. [second prompt...]  
+  3. [third prompt...]
   
-  ✅ Zkontroluj:
-  • [specifické kontroly podle kontextu]
+  ✅ Check:
+  • [specific checks based on context]
   ```
 
 ### Technical
-- Čte až 3 poslední SpecStory konverzace
-- Extrahuje user prompty ze SpecStory markdown formátu
-- Generuje kontextové kontrolní body podle typu práce
+- Reads up to 3 latest SpecStory conversations
+- Extracts user prompts from SpecStory markdown format
+- Generates contextual check points based on work type
 
 ## [1.1.9] - 2025-08-03
 ### Added
-- **🤖 Chytré notifikace** - analýza SpecStory konverzací pro kontextové hlášky
-- **📁 SpecStory integrace** - čte `.specstory/history/` složky pro kontext
-- **⚙️ Nová nastavení**:
-  - `enableSmartNotifications` - zapne/vypne chytré hlášky
-  - `specstoryHistoryPath` - vlastní cesta k SpecStory historii
+- **🤖 Smart notifications** - analyzes SpecStory conversations for contextual messages
+- **📁 SpecStory integration** - reads `.specstory/history/` folders for context
+- **⚙️ New settings**:
+  - `enableSmartNotifications` - enable/disable smart messages
+  - `specstoryHistoryPath` - custom path to SpecStory history
 
 ### Features
-- **Kontextové hlášky** podle typu AI práce:
-  - Debugging: "AI právě debugoval! Zkontroluj skutečnou příčinu..."
-  - UI/HTML/CSS: "AI pracoval s UI! Zkontroluj responzivní design..."
-  - Database: "AI upravoval databázi! Zkontroluj data integrity..."
-  - API: "AI vytvořil API! Zkontroluj error handling..."
-  - Performance: "AI optimalizoval! Zkontroluj skutečné zrychlení..."
-  - Security: "AI pracoval se security! Zkontroluj encryption..."
+- **Contextual messages** based on AI work type:
+  - Debugging: "AI just debugged! Check root cause..."
+  - UI/HTML/CSS: "AI worked on UI! Check responsive design..."
+  - Database: "AI modified database! Check data integrity..."
+  - API: "AI created API! Check error handling..."
+  - Performance: "AI optimized! Check actual speedup..."
+  - Security: "AI worked on security! Check encryption..."
 
 ### Technical
-- Auto-detekce `.specstory/history/` ve workspace
-- Fallback na výchozí zprávu při chybách
-- Respektuje uživatelské vlastní zprávy
+- Auto-detection of `.specstory/history/` in workspace
+- Fallback to default message on errors
+- Respects user custom messages
 
 ## [1.1.8] - 2025-08-03
 ### Analysis
@@ -63,23 +131,23 @@
 ## [1.1.7] - 2025-08-03
 ### Fixed
 - Keyboard Activity Detection se nyní nikdy neaktivuje automaticky
-- Spouští se pouze když je explicitně povolena v nastavení
-- Opraveno nežádoucí spouštění i při `KeyboardActivity=false`
+- Executes only when explicitly enabled in settings
+- Fixed unwanted execution even when `KeyboardActivity=false`
 
 ### Updated
-- Aktualizována AI instructions: NIKDY nespouštět `pnpm run compile` zvlášť
-- Workflow: zvyš verzi → `.\install.ps1` → pokud selže: sniž verzi, oprav, zvyš znovu
+- Updated AI instructions: NEVER run `pnpm run compile` separately
+- Workflow: increment version → `.\install.ps1` → if fails: decrease version, fix, increment again
 
 ## [1.1.6] - 2025-08-03
 ### Fixed
-- **Keyboard Activity Detection** se nyní aktivuje pouze když je explicitně povolena v nastavení
-- **Terminal a File System Detection** se také aktivují pouze když jsou explicitně povoleny
-- **Aggressive detection level** nyní neaktivuje experimentální metody automaticky
-- Sníženo množství debug logů - logy se nebudou aktualizovat při běžném psaní
+- **Keyboard Activity Detection** now activates only when explicitly enabled in settings
+- **Terminal and File System Detection** also activate only when explicitly enabled
+- **Aggressive detection level** no longer activates experimental methods automatically
+- Reduced debug log amount - logs won't update during normal typing
 
 ### Changed
-- Experimentální detekční metody (Terminal, FileSystem, KeyboardActivity) jsou nyní dostupné pouze na explicitní žádost
-- Aggressive level používá pouze: CommandHook + Webview + PanelFocus + Pattern + CodeInsertion + Memory
+- Experimental detection methods (Terminal, FileSystem, KeyboardActivity) are now available only on explicit request
+- Aggressive level uses only: CommandHook + Webview + PanelFocus + Pattern + CodeInsertion + Memory
 
 ## [1.1.5] - 2025-08-03Log
 
@@ -91,20 +159,20 @@ Check [Keep a Changelog](http://keepachangelog.com/) for recommendations on how 
 
 ## [1.1.4] - 2025-08-03
 ### Added
-- **3 nové detekční metody**: Terminal Detection, File System Detection, Keyboard Activity Detection
-- **Celkem 9 detekčních metod** - všechny podmíněně dostupné přes nastavení
-- Terminal Detection: sleduje otevírání/zavírání terminálů
-- File System Detection: detekuje rychlé změny souborů (3+ změny za sekundu)
-- Keyboard Activity Detection: detekuje rychlé psaní (100+ znaků za 500ms)
+- **3 new detection methods**: Terminal Detection, File System Detection, Keyboard Activity Detection
+- **Total 9 detection methods** - all conditionally available through settings
+- Terminal Detection: monitors terminal opening/closing
+- File System Detection: detects rapid file changes (3+ changes per second)
+- Keyboard Activity Detection: detects rapid typing (100+ characters in 500ms)
 
 ### Fixed
-- Opravena funkcionalita notifikací - odstraněna blokující podmínka z handleAIActivity()
-- Notifikace se opět zobrazují správně po detekci AI aktivity
+- Fixed notification functionality - removed blocking condition from handleAIActivity()
+- Notifications now display correctly again after AI activity detection
 
 ### Technical
-- Aggressive detection level nyní podporuje všech 9 metod
-- Ve výchozím stavu jsou aktivní jen CommandHook a Webview Detection (doporučené)
-- Ostatní metody lze povolit individuálně v nastavení
+- Aggressive detection level now supports all 9 methods
+- By default only CommandHook and Webview Detection are active (recommended)
+- Other methods can be enabled individually in settings
 
 ## [1.1.3] - 2025-08-03
 
@@ -158,7 +226,7 @@ Check [Keep a Changelog](http://keepachangelog.com/) for recommendations on how 
 - Eliminated all temporary/backup TypeScript files
 
 ### Added
-- Comprehensive AI development rules in .github/ai-instructions.md
+- Comprehensive AI development rules in .github/ai.instructions.md
 - Automatic build verification after code changes
 - Strict git commit workflow for version releases
 

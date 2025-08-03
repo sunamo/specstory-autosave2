@@ -828,6 +828,8 @@ async function readRecentSpecStoryConversations(historyPath: string, count: numb
 }
 
 function generateMessageWithRecentPrompts(conversations: {content: string, topic: string, timestamp: string}[]): string {
+    const i18n = require('./i18n');
+    
     if (conversations.length === 0) {
         return 'AI prompt detected! Please check:\n• Did AI understand your question correctly?\n• If working with HTML, inspect for invisible elements\n• Verify the response quality and accuracy';
     }
@@ -866,65 +868,93 @@ function generateMessageWithRecentPrompts(conversations: {content: string, topic
         return 'AI prompt detected! Please check:\n• Did AI understand your question correctly?\n• If working with HTML, inspect for invisible elements\n• Verify the response quality and accuracy';
     }
     
+    // Format prompts for display
+    const promptsList = lastPrompts.map((prompt, index) => {
+        const shortPrompt = prompt.length > 80 ? prompt.substring(0, 80) + '...' : prompt;
+        return `${index + 1}. ${shortPrompt}`;
+    }).join('\n');
+    
     // Generate context-aware message with recent prompts
     const contextAnalysis = analyzePromptsContext(lastPrompts);
-    let message = `AI právě odpověděl! Zkontroluj ${contextAnalysis.focus}:\n`;
     
-    // Add recent prompts
-    message += '\n📝 Poslední prompty:\n';
-    for (let i = 0; i < lastPrompts.length; i++) {
-        const prompt = lastPrompts[i];
-        const shortPrompt = prompt.length > 80 ? prompt.substring(0, 80) + '...' : prompt;
-        message += `${i + 1}. ${shortPrompt}\n`;
+    try {
+        switch (contextAnalysis.type) {
+            case 'debug':
+                return i18n.t('ai.smartDebug', promptsList);
+            case 'ui':
+                return i18n.t('ai.smartUI', promptsList);
+            case 'database':
+                return i18n.t('ai.smartDatabase', promptsList);
+            case 'api':
+                return i18n.t('ai.smartAPI', promptsList);
+            case 'performance':
+                return i18n.t('ai.smartPerformance', promptsList);
+            case 'security':
+                return i18n.t('ai.smartSecurity', promptsList);
+            default:
+                return i18n.t('ai.smartDefault', conversations[0]?.topic || 'code', promptsList);
+        }
+    } catch (error) {
+        // Fallback if i18n fails
+        return `AI just responded! Check ${contextAnalysis.focus}:\n\n📝 Recent prompts:\n${promptsList}\n\n✅ Check:\n${contextAnalysis.checks}`;
     }
-    
-    // Add context-specific checks
-    message += `\n✅ Zkontroluj:\n${contextAnalysis.checks}`;
-    
-    return message;
 }
 
-function analyzePromptsContext(prompts: string[]): {focus: string, checks: string} {
+function analyzePromptsContext(prompts: string[]): {type: string, focus: string, checks: string} {
     const allText = prompts.join(' ').toLowerCase();
     
     if (allText.includes('debug') || allText.includes('error') || allText.includes('bug') || allText.includes('fix')) {
         return {
+            type: 'debug',
             focus: 'debugging',
-            checks: '• Opravil skutečnou příčinu problému?\n• Nezavedl nové bugy?\n• Testuj edge cases'
+            checks: '• Fixed the actual root cause?\n• No new bugs introduced?\n• Test edge cases'
         };
     }
     
     if (allText.includes('html') || allText.includes('css') || allText.includes('style') || allText.includes('design')) {
         return {
+            type: 'ui',
             focus: 'UI/design',
-            checks: '• Responzivní design\n• Accessibility\n• Cross-browser kompatibilita'
+            checks: '• Responsive design\n• Accessibility\n• Cross-browser compatibility'
         };
     }
     
     if (allText.includes('database') || allText.includes('sql') || allText.includes('query')) {
         return {
-            focus: 'databázi',
-            checks: '• Data integrity\n• Performance impact\n• Backup strategie'
+            type: 'database',
+            focus: 'database',
+            checks: '• Data integrity\n• Performance impact\n• Backup strategy'
         };
     }
     
     if (allText.includes('api') || allText.includes('endpoint') || allText.includes('request')) {
         return {
+            type: 'api',
             focus: 'API',
-            checks: '• Error handling\n• Security\n• API dokumentace'
+            checks: '• Error handling\n• Security\n• API documentation'
         };
     }
     
     if (allText.includes('performance') || allText.includes('optimize') || allText.includes('slow')) {
         return {
+            type: 'performance',
             focus: 'performance',
-            checks: '• Skutečné zrychlení?\n• Memory leaks?\n• Regrese funkcionalit?'
+            checks: '• Actual speedup achieved?\n• Memory leaks?\n• Functionality regression?'
+        };
+    }
+    
+    if (allText.includes('security') || allText.includes('auth') || allText.includes('login') || allText.includes('password')) {
+        return {
+            type: 'security',
+            focus: 'security',
+            checks: '• Proper encryption\n• Input validation\n• Security best practices'
         };
     }
     
     return {
-        focus: 'kód',
-        checks: '• Splňuje požadavky?\n• Žádné side effects?\n• Dokumentace aktuální?'
+        type: 'default',
+        focus: 'code',
+        checks: '• Meets original requirements?\n• No side effects or breaking changes?\n• Documentation and comments updated?'
     };
 }
 
