@@ -19,6 +19,31 @@
 
 # Changelog
 
+## [1.1.20] - 2025-08-03
+
+### Fixed
+- Fixed Enter key behavior in notifications - now activates "Will Check Status" (blue button) instead of "Everything OK"
+- Improved button order in AI prompt notifications for better UX
+
+## [1.1.20] - 2025-08-03
+
+### Added
+- Copilot Continue helper to make Enter key work in Copilot Chat
+- Multiple key bindings for different Copilot contexts (inline, panel, interactive)
+- Smart command detection for Continue button functionality
+
+### Fixed
+- Enter key now properly triggers Continue action in Copilot Chat interface
+- Enhanced key binding contexts for better Copilot integration
+
+## [1.1.19] - 2025-08-03
+
+### Fixed
+- Fixed SpecStory file reading to process ALL files in history folder
+- Improved chronological sorting of conversations by timestamp
+- Added version display in status bar (AI: [count] v[version])
+- Enhanced prompt selection to guarantee last 3 prompts from entire history
+
 ## [1.1.18] - 2025-08-03
 
 ### Fixed

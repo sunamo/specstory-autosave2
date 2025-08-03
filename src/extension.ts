@@ -136,6 +136,41 @@ export function activate(context: vscode.ExtensionContext) {
         vscode.window.showInformationMessage('AI prompt counter reset to 0');
     });
 
+    // Register Copilot continue helper command
+    const copilotContinue = vscode.commands.registerCommand('specstoryautosave.copilotContinue', async () => {
+        debugChannel.appendLine('[DEBUG] 🔵 Copilot Continue helper triggered');
+        
+        try {
+            // Try multiple possible continue commands
+            const continueCommands = [
+                'github.copilot.chat.continueInlineChat',
+                'github.copilot.interactiveEditor.accept',
+                'workbench.action.chat.continue',
+                'github.copilot.chat.accept',
+                'inlineChat.accept',
+                'interactive.accept'
+            ];
+            
+            for (const command of continueCommands) {
+                try {
+                    debugChannel.appendLine(`[DEBUG] 🔵 Trying command: ${command}`);
+                    await vscode.commands.executeCommand(command);
+                    debugChannel.appendLine(`[DEBUG] ✅ Successfully executed: ${command}`);
+                    return; // Success, exit
+                } catch (error) {
+                    debugChannel.appendLine(`[DEBUG] ❌ Failed: ${command} - ${error}`);
+                }
+            }
+            
+            // If all commands failed, try pressing Enter programmatically
+            debugChannel.appendLine('[DEBUG] 🔵 All commands failed, trying keyboard simulation');
+            await vscode.commands.executeCommand('type', { text: '\n' });
+            
+        } catch (error) {
+            debugChannel.appendLine(`[DEBUG] ❌ Copilot continue failed: ${error}`);
+        }
+    });
+
     // Add commands to context
     context.subscriptions.push(findSpecStoryCommands);
     context.subscriptions.push(testSpecStoryDialog);
@@ -146,6 +181,7 @@ export function activate(context: vscode.ExtensionContext) {
     context.subscriptions.push(testCopilotDetection);
     context.subscriptions.push(showPromptStats);
     context.subscriptions.push(resetCounter);
+    context.subscriptions.push(copilotContinue);
     context.subscriptions.push(outputChannel);
     context.subscriptions.push(debugChannel);
     
@@ -735,8 +771,8 @@ async function generateSmartNotificationMessage(): Promise<string> {
             return defaultMessage;
         }
         
-        // Read latest 3 SpecStory conversations
-        const recentConversations = await readRecentSpecStoryConversations(specstoryPath, 3);
+        // Read latest 10 SpecStory conversations to get more prompts
+        const recentConversations = await readRecentSpecStoryConversations(specstoryPath, 10);
         if (!recentConversations || recentConversations.length === 0) {
             debugChannel.appendLine('[DEBUG] No recent conversations found, using default message');
             return defaultMessage;
@@ -789,13 +825,12 @@ async function readRecentSpecStoryConversations(historyPath: string, count: numb
         const historyUri = vscode.Uri.file(historyPath);
         const files = await vscode.workspace.fs.readDirectory(historyUri);
         
-        // Filter only .md files and sort by name (which includes timestamp)
+        // Get ALL .md files (not just the requested count)
         const mdFiles = files
             .filter(([name, type]) => name.endsWith('.md') && type === vscode.FileType.File)
-            .map(([name]) => name)
-            .sort()
-            .reverse() // Latest first
-            .slice(0, count); // Take only requested count
+            .map(([name]) => name);
+        
+        debugChannel.appendLine(`[DEBUG] Found ${mdFiles.length} SpecStory files to process`);
         
         if (mdFiles.length === 0) {
             return null;
@@ -803,6 +838,7 @@ async function readRecentSpecStoryConversations(historyPath: string, count: numb
         
         const conversations = [];
         
+        // Read ALL files, not just the first few
         for (const fileName of mdFiles) {
             const fileUri = vscode.Uri.joinPath(historyUri, fileName);
             const fileContent = await vscode.workspace.fs.readFile(fileUri);
@@ -812,13 +848,22 @@ async function readRecentSpecStoryConversations(historyPath: string, count: numb
             const topicMatch = fileName.match(/\d{4}-\d{2}-\d{2}_\d{2}-\d{2}Z-(.+)\.md$/);
             const topic = topicMatch ? topicMatch[1].replace(/-/g, ' ') : 'conversation';
             
-            // Extract timestamp
+            // Extract timestamp for sorting
             const timestampMatch = fileName.match(/(\d{4}-\d{2}-\d{2}_\d{2}-\d{2}Z)/);
             const timestamp = timestampMatch ? timestampMatch[1] : '';
             
             conversations.push({ content, topic, timestamp });
+            debugChannel.appendLine(`[DEBUG] Loaded file: ${fileName} (${timestamp})`);
         }
         
+        // Sort conversations by timestamp (newest first) 
+        conversations.sort((a, b) => {
+            const timeA = new Date(a.timestamp.replace('_', 'T').replace('Z', ':00Z')).getTime();
+            const timeB = new Date(b.timestamp.replace('_', 'T').replace('Z', ':00Z')).getTime();
+            return timeB - timeA; // Newest first
+        });
+        
+        debugChannel.appendLine(`[DEBUG] Sorted ${conversations.length} conversations by timestamp`);
         return conversations;
         
     } catch (error) {
@@ -1071,17 +1116,17 @@ async function showAINotificationImmediately() {
     
     debugChannel.appendLine('[DEBUG] About to call vscode.window.showWarningMessage...');
     
-    // Show single notification - no fallback to avoid duplicates
-    const notificationPromise = vscode.window.showWarningMessage(message, 'Everything OK', 'Will Check Status');
+    // Show single notification - first button is default (activated by Enter)
+    const notificationPromise = vscode.window.showWarningMessage(message, 'Will Check Status', 'Everything OK');
     
     debugChannel.appendLine('[DEBUG] showWarningMessage called, waiting for response...');
     
     notificationPromise.then((selection) => {
         debugChannel.appendLine(`[DEBUG] User selected: ${selection || 'DISMISSED'}`);
-        if (selection === 'Everything OK') {
-            debugChannel.appendLine('[DEBUG] User confirmed AI response is correct - everything OK');
-        } else if (selection === 'Will Check Status') {
+        if (selection === 'Will Check Status') {
             debugChannel.appendLine('[DEBUG] User will check the AI response status');
+        } else if (selection === 'Everything OK') {
+            debugChannel.appendLine('[DEBUG] User confirmed AI response is correct - everything OK');
         } else {
             debugChannel.appendLine('[DEBUG] User dismissed notification without selecting');
         }
@@ -1103,7 +1148,10 @@ async function showAINotificationImmediately() {
 
 function updateStatusBar() {
     if (!countdownTimer) {
-        statusBarItem.text = `$(robot) AI: ${aiPromptCounter}`;
+        // Get extension version from package.json
+        const packageJson = require('../package.json');
+        const version = packageJson.version || '1.0.0';
+        statusBarItem.text = `$(robot) AI: ${aiPromptCounter} v${version}`;
         statusBarItem.backgroundColor = undefined;
         statusBarItem.show();
     }
