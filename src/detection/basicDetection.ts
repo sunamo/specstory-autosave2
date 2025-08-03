@@ -127,22 +127,43 @@ export function initializeBasicDetection(
         });
         disposables.push(disposable1);
         
-        // DISABLED: Visible editors monitoring - causes duplicate detections with Active editor
-        // const disposable1b = vscode.window.onDidChangeVisibleTextEditors((editors) => {
-        //     logDebug(`👁️ Visible editors changed: ${editors.length} editors`);
-        //     const hasCopilotEditor = editors.some(editor => {
-        //         if (!editor) return false;
-        //         const uri = editor.document.uri.toString();
-        //         return uri.includes('copilot') || uri.includes('chat') || 
-        //                uri.includes('github.copilot') || uri.includes('inlinechat');
-        //     });
-        //     if (hasCopilotEditor) {
-        //         logDebug(`🎯 COPILOT ACTIVITY VIA VISIBLE EDITORS`);
-        //         logAIActivity(`Copilot activity detected via visible editors`);
-        //         debouncedHandleAIActivity('Visible-Editors');
-        //     }
-        // });
-        // disposables.push(disposable1b);
+        // NEW: Monitor ALL visible text editors for any changes
+        const disposable1b = vscode.window.onDidChangeVisibleTextEditors((editors) => {
+            logDebug(`👁️ Visible editors changed: ${editors.length} editors`);
+            
+            editors.forEach((editor, index) => {
+                if (editor) {
+                    const uri = editor.document.uri.toString();
+                    logDebug(`   Editor ${index}: ${uri}`);
+                    
+                    // Check for ANY editor that might be chat-related
+                    if (uri.includes('copilot') || uri.includes('chat') || uri.includes('webview') || uri.includes('github')) {
+                        logDebug(`🎯 POTENTIAL CHAT EDITOR DETECTED: ${uri}`);
+                        logAIActivity(`Potential chat editor detected: ${uri}`);
+                        
+                        // Immediate trigger for any chat-related editor
+                        setTimeout(() => {
+                            debouncedHandleAIActivity('Visible-Chat-Editor');
+                        }, 50);
+                    }
+                }
+            });
+        });
+        disposables.push(disposable1b);
+        
+        // NEW: Monitor workbench state changes
+        const disposable1c = vscode.workspace.onDidChangeWorkspaceFolders((event) => {
+            logDebug(`📁 Workspace folders changed: ${event.added.length} added, ${event.removed.length} removed`);
+            
+            // This might trigger during chat activity
+            if (event.added.length > 0 || event.removed.length > 0) {
+                logDebug(`🎯 WORKSPACE CHANGE - potential chat activity`);
+                setTimeout(() => {
+                    debouncedHandleAIActivity('Workspace-Change');
+                }, 100);
+            }
+        });
+        disposables.push(disposable1c);
     }
     
     // Method 2: Monitor panel state changes (DISABLED - testing for duplicates)
@@ -467,10 +488,15 @@ function initializePollingDetection(handleAIActivity: () => void, debugChannel: 
     try {
         let lastSpecStoryCount = -1; // Use -1 to indicate uninitialized
         let isInitialized = false;
+        let lastActiveEditor = '';
+        let lastVisibleEditorsCount = 0;
+        let checkCounter = 0;
         
         const pollingInterval = setInterval(async () => {
             try {
-                // Check if SpecStory folder exists and count files
+                checkCounter++;
+                
+                // APPROACH 1: Check SpecStory files as before
                 const workspaceFolders = vscode.workspace.workspaceFolders;
                 if (!workspaceFolders) return;
                 
@@ -498,23 +524,90 @@ function initializePollingDetection(handleAIActivity: () => void, debugChannel: 
                             logAIActivity(`AI activity detected via polling (${newFiles} new files)`);
                             lastSpecStoryCount = mdFiles.length;
                             handleAIActivity();
-                        } else {
-                            // Debug: log file count periodically
-                            if (Math.random() < 0.05) { // 5% chance to log
-                                logDebug(`📊 Polling check: ${mdFiles.length} files (no change)`);
-                            }
+                            return; // Exit after detection
                         }
                         
                     } catch {
                         // SpecStory folder doesn't exist yet, ignore
                     }
                 }
+                
+                // APPROACH 2: Monitor VS Code editor state changes
+                const activeEditor = vscode.window.activeTextEditor;
+                const currentActiveEditor = activeEditor ? activeEditor.document.uri.toString() : '';
+                const visibleEditorsCount = vscode.window.visibleTextEditors.length;
+                
+                // Check for editor changes every 10 cycles (2 seconds)
+                if (checkCounter % 10 === 0) {
+                    logDebug(`🔍 POLLING STATE CHECK: activeEditor="${currentActiveEditor}" visibleEditors=${visibleEditorsCount}`);
+                    
+                    // Detect changes in active editor
+                    if (currentActiveEditor !== lastActiveEditor) {
+                        logDebug(`📝 POLLING: Active editor changed from "${lastActiveEditor}" to "${currentActiveEditor}"`);
+                        
+                        // Check if new editor is chat-related
+                        if (currentActiveEditor.includes('copilot') || currentActiveEditor.includes('chat') || currentActiveEditor.includes('webview')) {
+                            logDebug(`🎯 POLLING: Chat editor detected via state monitoring!`);
+                            logAIActivity(`Chat editor detected via polling: ${currentActiveEditor}`);
+                            handleAIActivity();
+                        }
+                        
+                        lastActiveEditor = currentActiveEditor;
+                    }
+                    
+                    // Detect changes in visible editors count
+                    if (visibleEditorsCount !== lastVisibleEditorsCount) {
+                        logDebug(`👁️ POLLING: Visible editors count changed from ${lastVisibleEditorsCount} to ${visibleEditorsCount}`);
+                        lastVisibleEditorsCount = visibleEditorsCount;
+                        
+                        // Any change in visible editors might indicate chat activity
+                        setTimeout(() => {
+                            logAIActivity(`Visible editors change detected via polling`);
+                            handleAIActivity();
+                        }, 500); // Small delay to let UI settle
+                    }
+                }
+                
+                // APPROACH 3: Periodic chat command checking
+                if (checkCounter % 25 === 0) { // Every 5 seconds
+                    try {
+                        const allCommands = await vscode.commands.getCommands(true);
+                        const activeChatCommands = allCommands.filter(cmd => 
+                            cmd.includes('github.copilot-chat') || 
+                            cmd.includes('workbench.panel.chat') ||
+                            cmd.includes('copilot.chat') ||
+                            cmd.includes('chat.submit') ||
+                            cmd.includes('chat.send')
+                        );
+                        
+                        if (activeChatCommands.length > 0) {
+                            logDebug(`� POLLING: Found ${activeChatCommands.length} chat-related commands available`);
+                            
+                            // Try to detect if any chat commands were recently used
+                            // This is indirect but might help
+                            if (checkCounter % 50 === 0) { // Every 10 seconds, less frequent
+                                logDebug(`🔍 POLLING: Available chat commands: ${activeChatCommands.slice(0, 3).join(', ')}...`);
+                            }
+                        }
+                    } catch (error) {
+                        // Ignore command checking errors
+                    }
+                }
+                
+                // Debug: log file count periodically
+                if (Math.random() < 0.02) { // 2% chance to log (less spam)
+                    logDebug(`📊 Polling check ${checkCounter}: ${lastSpecStoryCount} files, activeEditor="${currentActiveEditor.slice(-50)}", visibleEditors=${visibleEditorsCount}`);
+                }
+                
             } catch (error) {
                 // Ignore polling errors to avoid spam
+                if (checkCounter % 100 === 0) { // Log errors only occasionally
+                    logDebug(`⚠️ Polling error: ${error}`);
+                }
             }
         }, 200); // Check every 200ms for ultra-fast detection
         
-        logDebug('📊 Ultra-fast polling detection initialized (200ms interval)');
+        logDebug('📊 Ultra-aggressive polling detection initialized (200ms interval with state monitoring)');
         return pollingInterval;
     } catch (error) {
         logDebug(`⚠️ Polling detection failed: ${error}`);
