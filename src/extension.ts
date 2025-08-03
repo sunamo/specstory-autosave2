@@ -1132,36 +1132,53 @@ async function showAINotificationImmediately() {
         countdownTimer = undefined;
     }
     
-    debugChannel.appendLine('[DEBUG] About to call vscode.window.showInformationMessage...');
+    debugChannel.appendLine('[DEBUG] Creating webview panel for AI notification...');
     
-    // Show single notification with simplified message
-    const notificationPromise = vscode.window.showInformationMessage(message, 'Will Check Status', 'Everything OK');
-    
-    debugChannel.appendLine('[DEBUG] showInformationMessage called, waiting for response...');
-    
-    notificationPromise.then((selection) => {
-        debugChannel.appendLine(`[DEBUG] User selected: ${selection || 'DISMISSED'}`);
-        if (selection === 'Will Check Status') {
-            debugChannel.appendLine('[DEBUG] User will check the AI response status');
-        } else if (selection === 'Everything OK') {
-            debugChannel.appendLine('[DEBUG] User confirmed AI response is correct - everything OK');
-        } else {
-            debugChannel.appendLine('[DEBUG] User dismissed notification without selecting');
+    // Create webview panel
+    const panel = vscode.window.createWebviewPanel(
+        'aiNotification',
+        '🤖 AI Activity Detected',
+        vscode.ViewColumn.Beside,
+        {
+            enableScripts: true,
+            retainContextWhenHidden: true
         }
-        debugChannel.appendLine('[DEBUG] AI notification dismissed');
-    }, (error: any) => {
-        debugChannel.appendLine(`[DEBUG] ERROR in notification promise: ${error}`);
-    });
+    );
     
-    // Update status bar to show detection
-    statusBarItem.text = `$(robot) AI: ${aiPromptCounter} (Latest!)`;
-    statusBarItem.backgroundColor = new vscode.ThemeColor('statusBarItem.warningBackground');
-    statusBarItem.show();
+    // Set webview content
+    panel.webview.html = getWebviewContent(message);
     
-    // Reset status bar color after 3 seconds
+    // Handle messages from webview
+    panel.webview.onDidReceiveMessage(
+        message => {
+            switch (message.command) {
+                case 'checkStatus':
+                    debugChannel.appendLine('[DEBUG] User will check the AI response status');
+                    panel.dispose();
+                    return;
+                case 'everythingOK':
+                    debugChannel.appendLine('[DEBUG] User confirmed AI response is correct - everything OK');
+                    panel.dispose();
+                    return;
+                case 'dismiss':
+                    debugChannel.appendLine('[DEBUG] User dismissed notification');
+                    panel.dispose();
+                    return;
+            }
+        },
+        undefined,
+        []
+    );
+    
+    // Auto-close after 30 seconds
     setTimeout(() => {
-        updateStatusBar();
-    }, 3000);
+        if (panel.visible) {
+            debugChannel.appendLine('[DEBUG] Auto-closing AI notification panel after 30 seconds');
+            panel.dispose();
+        }
+    }, 30000);
+    
+    debugChannel.appendLine('[DEBUG] AI notification webview panel created');
 }
 
 function updateStatusBar() {
@@ -1188,4 +1205,133 @@ export function deactivate() {
     if (debugChannel) {
         debugChannel.dispose();
     }
+}
+
+function getWebviewContent(message: string): string {
+    // Parse the message to extract prompts
+    const parts = message.split('Prompts: ');
+    const title = parts[0] || 'AI Activity Detected!';
+    const promptsText = parts[1] || '';
+    const prompts = promptsText.split(' | ').filter(p => p.length > 0);
+    
+    return `<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AI Activity Detected</title>
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', sans-serif;
+            padding: 20px;
+            margin: 0;
+            background: var(--vscode-editor-background);
+            color: var(--vscode-editor-foreground);
+        }
+        .container {
+            max-width: 600px;
+            margin: 0 auto;
+        }
+        h1 {
+            color: var(--vscode-textLink-foreground);
+            margin-bottom: 20px;
+            font-size: 18px;
+        }
+        .prompts-section {
+            background: var(--vscode-textBlockQuote-background);
+            border: 1px solid var(--vscode-textBlockQuote-border);
+            border-radius: 6px;
+            padding: 15px;
+            margin: 15px 0;
+        }
+        .prompts-title {
+            font-weight: bold;
+            margin-bottom: 10px;
+            color: var(--vscode-textPreformat-foreground);
+        }
+        .prompt-item {
+            background: var(--vscode-input-background);
+            border: 1px solid var(--vscode-input-border);
+            border-radius: 4px;
+            padding: 8px 12px;
+            margin: 8px 0;
+            font-family: 'Courier New', Consolas, monospace;
+            font-size: 13px;
+            color: var(--vscode-input-foreground);
+        }
+        .buttons {
+            display: flex;
+            gap: 10px;
+            margin-top: 20px;
+            justify-content: center;
+        }
+        button {
+            background: var(--vscode-button-background);
+            color: var(--vscode-button-foreground);
+            border: none;
+            border-radius: 4px;
+            padding: 8px 16px;
+            cursor: pointer;
+            font-size: 13px;
+            transition: background 0.2s;
+        }
+        button:hover {
+            background: var(--vscode-button-hoverBackground);
+        }
+        .primary {
+            background: var(--vscode-button-background);
+        }
+        .secondary {
+            background: var(--vscode-button-secondaryBackground);
+            color: var(--vscode-button-secondaryForeground);
+        }
+        .secondary:hover {
+            background: var(--vscode-button-secondaryHoverBackground);
+        }
+        .dismiss {
+            background: transparent;
+            color: var(--vscode-button-secondaryForeground);
+            border: 1px solid var(--vscode-button-border);
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🤖 ${title.replace('!', '')}</h1>
+        
+        <div class="prompts-section">
+            <div class="prompts-title">📝 Recent AI Prompts:</div>
+            ${prompts.map(prompt => `<div class="prompt-item">• ${prompt.trim()}</div>`).join('')}
+        </div>
+        
+        <div class="buttons">
+            <button class="primary" onclick="checkStatus()">🔍 Will Check Status</button>
+            <button class="secondary" onclick="everythingOK()">✅ Everything OK</button>
+            <button class="dismiss" onclick="dismiss()">❌ Dismiss</button>
+        </div>
+    </div>
+
+    <script>
+        const vscode = acquireVsCodeApi();
+        
+        function checkStatus() {
+            vscode.postMessage({
+                command: 'checkStatus'
+            });
+        }
+        
+        function everythingOK() {
+            vscode.postMessage({
+                command: 'everythingOK'
+            });
+        }
+        
+        function dismiss() {
+            vscode.postMessage({
+                command: 'dismiss'
+            });
+        }
+    </script>
+</body>
+</html>`;
 }

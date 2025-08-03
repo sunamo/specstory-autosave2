@@ -1,5 +1,20 @@
 # Changelog
 
+## [1.1.25] - 2025-08-03
+
+### Added
+- **NEW: Webview Panel notifications!** - Beautiful HTML notifications with proper multi-line formatting
+- Custom styled notification panel with VS Code theme integration
+- Interactive buttons with proper hover effects and VS Code styling
+- Auto-close after 30 seconds functionality
+- Individual prompt display with proper line breaks and bullet points
+
+### Changed
+- Replaced simple notifications with rich webview panels
+- Enhanced prompt display with structured HTML formatting  
+- Added emoji icons and better visual hierarchy
+- Improved user interaction with dedicated buttons
+
 ## [1.1.24] - 2025-08-03
 
 ### Fixed
