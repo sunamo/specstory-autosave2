@@ -2,7 +2,7 @@ import * as vscode from "vscode";
 
 export function initializeEnterKeyDetection(handleAIActivity: () => void, debugChannel: vscode.OutputChannel): vscode.Disposable[] {
     // Register command that matches package.json keybinding
-    const cmd = vscode.commands.registerCommand("specstoryautosave.detectEnterInChat", async () => {
+    const cmd = vscode.commands.registerCommand("specstoryautosave.interceptEnter", async () => {
         // STEP 1: OKAMŽITÁ notifikace (první věc!)
         vscode.window.showInformationMessage("🤖 AI Prompt detected! Processing...");
         debugChannel.appendLine("🎯 ENTER INTERCEPTED - Processing...");
