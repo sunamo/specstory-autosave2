@@ -54,12 +54,13 @@ export function initializeEnterKeyDetection(
     try {
         const originalExecuteCommand = vscode.commands.executeCommand;
         
-        (vscode.commands as any).executeCommand = async function(command: string, ...args: any[]) {
+        (vscode.commands as any).executeCommand = function(command: string, ...args: any[]) {
             const cmd = command.toLowerCase();
             
-            const result = await originalExecuteCommand.apply(this, [command, ...args]);
+            // First, execute the original command and let it proceed
+            const result = originalExecuteCommand.apply(this, [command, ...args]);
 
-            // Log copilot/chat commands
+            // Now, run our detection logic without blocking the command's execution
             if (cmd.includes('copilot') || cmd.includes('chat') || cmd.includes('github')) {
                 debugChannel.appendLine(`[DEBUG] 🔧 CHAT COMMAND: ${command}`);
                 
@@ -68,19 +69,21 @@ export function initializeEnterKeyDetection(
                     cmd.includes('submit') ||
                     cmd.includes('send') ||
                     cmd.includes('chat.action') ||
-                    cmd.includes('acceptinput')) {
+                    cmd.includes('acceptinput') ||
+                    cmd === 'workbench.action.chat.acceptinput') { // More specific command
                     
-                    debugChannel.appendLine(`[DEBUG] 🎯 MESSAGE SEND COMMAND: ${command}`);
+                    debugChannel.appendLine(`[DEBUG] 🎯 MESSAGE SEND COMMAND DETECTED: ${command}`);
                     
                     const now = Date.now();
-                    if (now - lastDetectedTime > 500) {
+                    if (now - lastDetectedTime > 500) { // Debounce
                         lastDetectedTime = now;
-                        debugChannel.appendLine('[DEBUG] 🚀 COMMAND DETECTION - MESSAGE SENT!');
+                        debugChannel.appendLine('[DEBUG] 🚀 HANDLING AI ACTIVITY!');
                         handleAIActivity();
                     }
                 }
             }
             
+            // Return the original result immediately
             return result;
         };
         
