@@ -46,7 +46,7 @@ export function initializeBasicDetection(
     enableWebview: boolean = true, 
     enablePanelFocus: boolean = true
 ) {
-    logDebug(`🎯 Initializing ENHANCED BASIC detection - CommandHook: ${enableCommandHook}, Webview: ${enableWebview}, PanelFocus: ${enablePanelFocus}`);
+    logDebug(`🎯 Initializing ULTRA-AGGRESSIVE BASIC detection - CommandHook: ${enableCommandHook}, Webview: ${enableWebview}, PanelFocus: ${enablePanelFocus}`);
     
     const disposables: vscode.Disposable[] = [];
     
@@ -55,6 +55,19 @@ export function initializeBasicDetection(
     if (specstoryWatcher) {
         disposables.push(specstoryWatcher);
     }
+    
+    // NEW: UNIVERSAL AI ACTIVITY DETECTOR - monitors ALL VS Code activity
+    const disposableUniversal = vscode.workspace.onDidChangeConfiguration((event) => {
+        // Any configuration change might indicate AI activity
+        if (event.affectsConfiguration('copilot') || 
+            event.affectsConfiguration('chat') ||
+            event.affectsConfiguration('github.copilot')) {
+            logDebug('⚙️ COPILOT CONFIGURATION CHANGE DETECTED!');
+            logAIActivity('AI activity detected via configuration change');
+            handleAIActivity();
+        }
+    });
+    disposables.push(disposableUniversal);
     
     // Method 1: Monitor chat panel visibility and focus (IMPROVED)
     if (enableWebview) {
@@ -80,6 +93,23 @@ export function initializeBasicDetection(
             }
         });
         disposables.push(disposable1);
+        
+        // NEW: Additional webview monitoring for ALL Copilot activity
+        const disposable1b = vscode.window.onDidChangeVisibleTextEditors((editors) => {
+            editors.forEach(editor => {
+                if (!editor) return;
+                const uri = editor.document.uri.toString();
+                
+                // Detect ANY Copilot-related activity
+                if (uri.includes('copilot') || uri.includes('chat') || 
+                    uri.includes('github.copilot') || uri.includes('inlinechat')) {
+                    logDebug(`🎯 COPILOT ACTIVITY VIA VISIBLE EDITORS: ${uri}`);
+                    logAIActivity(`Copilot activity detected via visible editors: ${uri}`);
+                    handleAIActivity();
+                }
+            });
+        });
+        disposables.push(disposable1b);
     }
     
     // Method 2: Monitor panel state changes (if enabled)
@@ -92,16 +122,31 @@ export function initializeBasicDetection(
                 vscode.commands.getCommands(true).then(commands => {
                     const activeChatCommands = commands.filter(cmd => 
                         cmd.includes('github.copilot-chat') || 
-                        cmd.includes('workbench.panel.chat.view.copilot')
+                        cmd.includes('workbench.panel.chat.view.copilot') ||
+                        cmd.includes('copilot.chat') ||
+                        cmd.includes('inlinechat')
                     );
                     
                     if (activeChatCommands.length > 0) {
                         debugChannel.appendLine(`[DEBUG] 💬 Found ${activeChatCommands.length} active chat commands`);
+                        logDebug('🚀 CHAT COMMANDS DETECTED!');
+                        logAIActivity(`Found ${activeChatCommands.length} active chat commands`);
+                        handleAIActivity();
                     }
                 });
             }
         });
         disposables.push(disposable2);
+        
+        // NEW: Monitor terminal changes that might indicate Copilot usage
+        const disposable2b = vscode.window.onDidChangeActiveTerminal((terminal) => {
+            if (terminal && terminal.name.toLowerCase().includes('copilot')) {
+                logDebug(`🖥️ COPILOT TERMINAL ACTIVATED: ${terminal.name}`);
+                logAIActivity(`Copilot terminal activated: ${terminal.name}`);
+                handleAIActivity();
+            }
+        });
+        disposables.push(disposable2b);
     }
     
     // Method 3: Enhanced command hook (if enabled)
@@ -120,7 +165,10 @@ export function initializeBasicDetection(
                     'workbench.panel.chat',
                     'workbench.action.chat',
                     'inlinechat',
-                    'interactive'
+                    'interactive',
+                    'copilot.send',
+                    'copilot.chat.send',
+                    'workbench.action.openChat'
                 ];
                 
                 const isCopilotCommand = copilotCommands.some(pattern => cmd.includes(pattern));
@@ -142,6 +190,40 @@ export function initializeBasicDetection(
             logDebug(`⚠️ Command hook failed: ${error}`);
         }
     }
+    
+    // NEW: Monitor text selection changes in case of Copilot inline suggestions
+    const disposable4 = vscode.window.onDidChangeTextEditorSelection((event) => {
+        const editor = event.textEditor;
+        if (!editor) return;
+        
+        const uri = editor.document.uri.toString();
+        // Check if this might be Copilot-related activity
+        if (event.selections.length > 0 && (uri.includes('copilot') || uri.includes('chat'))) {
+            logDebug(`📝 TEXT SELECTION IN COPILOT CONTEXT: ${uri}`);
+            logAIActivity(`Text selection change in Copilot context: ${uri}`);
+            handleAIActivity();
+        }
+    });
+    disposables.push(disposable4);
+    
+    // NEW: Monitor document changes that might indicate AI responses
+    const disposable5 = vscode.workspace.onDidChangeTextDocument((event) => {
+        if (!event.document) return;
+        
+        const uri = event.document.uri.toString();
+        // Detect AI-generated content insertions
+        if (uri.includes('copilot') || uri.includes('chat') || 
+            (event.contentChanges.length > 0 && 
+             event.contentChanges.some(change => 
+                change.text.length > 50 && // Significant text insertion
+                (change.text.includes('//') || change.text.includes('/*') || change.text.includes('function'))
+             ))) {
+            logDebug(`📄 DOCUMENT CHANGE IN AI CONTEXT: ${uri}`);
+            logAIActivity(`Document change in AI context: ${uri}`);
+            handleAIActivity();
+        }
+    });
+    disposables.push(disposable5);
     
     // NEW: Polling mechanism as backup detection
     const pollingInterval = initializePollingDetection(handleAIActivity, debugChannel);
