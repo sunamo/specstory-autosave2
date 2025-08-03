@@ -5,7 +5,7 @@
 **DŮLEŽITÉ: Pri každé nové verzi:**
 1. Aktualizuj číslo verze v `package.json`
 2. Aktualizuj `CHANGELOG.md` s popisem změn
-3. Spusť `.\install.ps1` - provede automaticky: git commit, git push, build, package a install
+3. Spusť `.\install.ps1` - provede automaticky: build, git commit (jen při úspěšném buildu), git push, package a install
 
 ### Příkazy pro release nové verze:
 ```powershell
@@ -19,10 +19,11 @@ pnpm version patch
 # 3. Spusť celý release workflow jedním příkazem:
 .\install.ps1
 # Tento skript automaticky provede:
+# - Vyčištění starých .vsix
+# - pnpm run compile (BUILD FIRST!)
 # - git add .
-# - git commit -m "v[version]"
+# - git commit -m "v[version]" (jen při úspěšném buildu)
 # - git push origin master
-# - pnpm run compile
 # - vsce package
 # - VS Code extension install
 ```

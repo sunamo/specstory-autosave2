@@ -79,7 +79,14 @@ export function activate(context: vscode.ExtensionContext) {
     const testAINotification = vscode.commands.registerCommand('specstoryautosave.testAINotification', () => {
         debugChannel.appendLine('[DEBUG] MANUAL TEST: Simulating immediate AI notification...');
         debugChannel.appendLine('[DEBUG] Note: This is a manual test, not triggered by real AI activity');
-        showAINotificationImmediately();
+        debugChannel.appendLine('[DEBUG] Testing vscode.window.showWarningMessage directly...');
+        
+        // Direct test of notification system
+        vscode.window.showWarningMessage('🧪 TEST NOTIFICATION: This is a test of the notification system', 'Test OK', 'Test Cancel').then((selection) => {
+            debugChannel.appendLine(`[DEBUG] TEST RESULT: User selected '${selection || 'DISMISSED'}'`);
+        }, (error: any) => {
+            debugChannel.appendLine(`[DEBUG] TEST ERROR: ${error}`);
+        });
     });
 
     // Register keyboard shortcut for AI notification (for testing)
@@ -590,15 +597,29 @@ function initializeAggressiveDetection(shouldUseCodeInsertion: boolean = false, 
 }
 
 function handleAIActivity() {
+    const now = Date.now();
+    
+    // Prevent spam - minimum 5 seconds between notifications
+    if (now - lastDetectedTime < 5000) {
+        debugChannel.appendLine(`[DEBUG] AI activity detected but ignored (too soon: ${now - lastDetectedTime}ms)`);
+        return;
+    }
+    
+    lastDetectedTime = now;
     aiPromptCounter++;
+    
     const config = vscode.workspace.getConfiguration('specstoryautosave');
     const enableNotifications = config.get<boolean>('enableAICheckNotifications', true);
     const frequency = config.get<number>('aiNotificationFrequency', 1);
     
     debugChannel.appendLine(`[DEBUG] AI activity detected! Counter: ${aiPromptCounter}`);
+    debugChannel.appendLine(`[DEBUG] Notifications enabled: ${enableNotifications}, Frequency: ${frequency}`);
     
     if (enableNotifications && (aiPromptCounter % frequency === 0)) {
+        debugChannel.appendLine(`[DEBUG] Will show notification (counter ${aiPromptCounter} matches frequency ${frequency})`);
         showAINotificationImmediately();
+    } else {
+        debugChannel.appendLine(`[DEBUG] Notification skipped - notifications: ${enableNotifications}, counter: ${aiPromptCounter}, frequency: ${frequency}`);
     }
     
     updateStatusBar();
@@ -610,6 +631,7 @@ function showAINotificationImmediately() {
     const message = config.get<string>('aiNotificationMessage', defaultMessage);
     
     debugChannel.appendLine('[DEBUG] Showing AI notification immediately');
+    debugChannel.appendLine(`[DEBUG] Message: ${message.substring(0, 50)}...`);
     
     // Clear any existing countdown
     if (countdownTimer) {
@@ -617,14 +639,36 @@ function showAINotificationImmediately() {
         countdownTimer = undefined;
     }
     
-    // Show the notification immediately
-    vscode.window.showWarningMessage(message, 'Everything OK', 'Will Check Status').then((selection) => {
+    // Try both showWarningMessage and showInformationMessage as fallback
+    debugChannel.appendLine('[DEBUG] About to call vscode.window.showWarningMessage...');
+    
+    // Primary notification method
+    const notificationPromise = vscode.window.showWarningMessage(message, 'Everything OK', 'Will Check Status');
+    
+    // Fallback with Information message after 2 seconds if no response
+    const fallbackTimer = setTimeout(() => {
+        debugChannel.appendLine('[DEBUG] Warning message might not have shown, trying Information message fallback...');
+        vscode.window.showInformationMessage(`🤖 ${message}`, 'Got it!', 'Will Check').then((fallbackSelection) => {
+            debugChannel.appendLine(`[DEBUG] Fallback notification result: ${fallbackSelection || 'DISMISSED'}`);
+        });
+    }, 2000);
+    
+    debugChannel.appendLine('[DEBUG] showWarningMessage called, waiting for response...');
+    
+    notificationPromise.then((selection) => {
+        clearTimeout(fallbackTimer); // Cancel fallback if primary worked
+        debugChannel.appendLine(`[DEBUG] User selected: ${selection || 'DISMISSED'}`);
         if (selection === 'Everything OK') {
             debugChannel.appendLine('[DEBUG] User confirmed AI response is correct - everything OK');
         } else if (selection === 'Will Check Status') {
             debugChannel.appendLine('[DEBUG] User will check the AI response status');
+        } else {
+            debugChannel.appendLine('[DEBUG] User dismissed notification without selecting');
         }
         debugChannel.appendLine('[DEBUG] AI notification dismissed');
+    }, (error: any) => {
+        clearTimeout(fallbackTimer);
+        debugChannel.appendLine(`[DEBUG] ERROR in notification promise: ${error}`);
     });
     
     // Update status bar to show detection

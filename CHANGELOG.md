@@ -4,6 +4,34 @@ All notable changes to the "specstory-autosave" extension will be documented in 
 
 Check [Keep a Changelog](http://keepachangelog.com/) for recommendations on how to structure this file.
 
+## [1.1.2] - 2025-08-03
+
+### Added
+- Enhanced notification system with fallback (Information message if Warning fails)
+- Better debug logging for notification troubleshooting
+- Automatic install.ps1 execution at end of each prompt for continuous deployment
+
+### Changed
+- Improved timing for AI detection (minimum 5 seconds between notifications)
+- Updated AI instructions: build on end of prompt, not after each line
+- Added fallback notification method to ensure notifications are visible
+
+### Fixed
+- Enhanced notification reliability in Extension Development Host
+- Better error handling for notification promises
+
+## [1.1.1] - 2025-08-03
+
+### Fixed
+- **CRITICAL:** Fixed release workflow - build is now executed BEFORE git commit
+- Ensures all committed versions are buildable (build → commit → push → package)
+- Updated install.ps1 to prevent committing broken code
+
+### Changed
+- Git commit now happens only after successful build
+- Updated AI instructions and development workflow documentation
+- Improved error handling in release process
+
 ## [1.1.0] - 2025-08-03
 
 ### Changed

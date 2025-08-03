@@ -8,15 +8,23 @@
 - Pokud potřebuješ vrátit změny, použij git revert
 - Žádné duplikáty, zálohy nebo temp soubory!
 
-### 🔨 BUILD po každé změně kódu
-- Po každé úpravě `.ts` souboru OKAMŽITĚ spusť `pnpm run compile`
+### 🔨 BUILD na konci každého promptu
+- Po dokončení všech změn v rámci jednoho promptu spusť `pnpm run compile`
+- Nemusíš buildovat po každém řádku, ale vždy na konci promptu
 - Pokud build selže, OKAMŽITĚ oprav chyby a znovu builduj
-- NIKDY nepokračuj dokud build neprošel úspěšně
+- NIKDY nerob commit dokud build neprošel úspěšně
+- **COMMIT AŽ PO ÚSPĚŠNÉM BUILDU** - aby všechny verze byly buildable
 
-### 📝 Git commit při každé verzi
-- Při vytváření nové verze VŽDY udělej git commit s číslem verze
-- Format: `git commit -m "v1.0.9"`
-- Používej pouze `.\install.ps1` pro kompletní release workflow
+### � RELEASE na konci každého promptu
+- **Na konci KAŽDÉHO promptu spusť `.\install.ps1`**
+- Tento skript provede: build → commit → push → package → install
+- Automaticky vytvoří novou verzi a nainstaluje ji
+- Uživatel tak má vždy nejnovější verzi rozšíření
+
+### �📝 Git commit workflow
+- Pořadí: 1) Změna kódu → 2) Build test → 3) `.\install.ps1` (automaticky: commit → push → package)
+- Format: `git commit -m "v1.1.1"`
+- Vše se provede automaticky přes install.ps1
 
 ## Command Execution Policy
 

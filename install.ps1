@@ -7,8 +7,31 @@ $packageJson = Get-Content "package.json" | ConvertFrom-Json
 $currentVersion = $packageJson.version
 Write-Host "Current version: $currentVersion" -ForegroundColor Cyan
 
-# Git commit and push
-Write-Host "1. Git commit and push..." -ForegroundColor Yellow
+# Clean up old VSIX files first
+Write-Host "1. Cleaning old VSIX files..." -ForegroundColor Yellow
+$vsixFiles = Get-ChildItem -Path "." -Filter "*.vsix" -ErrorAction SilentlyContinue
+if ($vsixFiles.Count -gt 0) {
+    Write-Host "   Found $($vsixFiles.Count) old VSIX files to remove:" -ForegroundColor Cyan
+    foreach ($file in $vsixFiles) {
+        Write-Host "   - Removing: $($file.Name)" -ForegroundColor Gray
+        Remove-Item $file.FullName -Force -ErrorAction SilentlyContinue
+    }
+    Write-Host "   ✅ Old VSIX files cleaned" -ForegroundColor Green
+} else {
+    Write-Host "   No old VSIX files found" -ForegroundColor Gray
+}
+
+# Build the extension FIRST
+Write-Host "2. Building extension..." -ForegroundColor Yellow
+pnpm run compile
+if ($LASTEXITCODE -ne 0) {
+    Write-Host "❌ Build failed!" -ForegroundColor Red
+    exit 1
+}
+Write-Host "   ✅ Build successful" -ForegroundColor Green
+
+# Git commit and push AFTER successful build
+Write-Host "3. Git commit and push..." -ForegroundColor Yellow
 git add .
 if ($LASTEXITCODE -ne 0) {
     Write-Host "❌ Git add failed!" -ForegroundColor Red
@@ -27,28 +50,6 @@ if ($LASTEXITCODE -ne 0) {
     exit 1
 }
 Write-Host "   ✅ Git commit and push completed" -ForegroundColor Green
-
-# Clean up old VSIX files
-Write-Host "2. Cleaning old VSIX files..." -ForegroundColor Yellow
-$vsixFiles = Get-ChildItem -Path "." -Filter "*.vsix" -ErrorAction SilentlyContinue
-if ($vsixFiles.Count -gt 0) {
-    Write-Host "   Found $($vsixFiles.Count) old VSIX files to remove:" -ForegroundColor Cyan
-    foreach ($file in $vsixFiles) {
-        Write-Host "   - Removing: $($file.Name)" -ForegroundColor Gray
-        Remove-Item $file.FullName -Force -ErrorAction SilentlyContinue
-    }
-    Write-Host "   ✅ Old VSIX files cleaned" -ForegroundColor Green
-} else {
-    Write-Host "   No old VSIX files found" -ForegroundColor Gray
-}
-
-# Build the extension
-Write-Host "3. Building extension..." -ForegroundColor Yellow
-pnpm run compile
-if ($LASTEXITCODE -ne 0) {
-    Write-Host "❌ Build failed!" -ForegroundColor Red
-    exit 1
-}
 
 # Create VSIX package with current version name
 Write-Host "4. Creating VSIX package..." -ForegroundColor Yellow
