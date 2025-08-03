@@ -218,7 +218,8 @@ function initializeCopilotMonitoring(context: vscode.ExtensionContext) {
 function initializeSpecStoryMonitoring(context: vscode.ExtensionContext) {
     logDebug('📁 Initializing SpecStory file monitoring...');
     
-    // Monitor when user opens/edits SpecStory files
+    // DISABLED: SpecStory file open detection - causes duplicate notifications for old files
+    /*
     const fileWatcher = vscode.workspace.onDidOpenTextDocument((document) => {
         const filePath = document.uri.fsPath;
         
@@ -261,6 +262,7 @@ function initializeSpecStoryMonitoring(context: vscode.ExtensionContext) {
             }
         }
     });
+    */
     
     // Monitor when SpecStory files are changed/saved
     const changeWatcher = vscode.workspace.onDidChangeTextDocument((event) => {
@@ -325,7 +327,7 @@ function initializeSpecStoryMonitoring(context: vscode.ExtensionContext) {
         }
     });
     
-    context.subscriptions.push(fileWatcher);
+    // context.subscriptions.push(fileWatcher); // DISABLED - fileWatcher is commented out
     context.subscriptions.push(changeWatcher);
     context.subscriptions.push(editorWatcher);
     
