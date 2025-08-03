@@ -764,6 +764,10 @@ async function generateSmartNotificationMessage(): Promise<string> {
     }
     
     try {
+        // Add small delay to allow SpecStory file to be written
+        debugChannel.appendLine('[DEBUG] Waiting 2 seconds for SpecStory file to be updated...');
+        await new Promise(resolve => setTimeout(resolve, 2000));
+        
         // Try to find SpecStory history folder
         const specstoryPath = await findSpecStoryHistoryPath();
         if (!specstoryPath) {
@@ -838,11 +842,25 @@ async function readRecentSpecStoryConversations(historyPath: string, count: numb
         
         const conversations = [];
         
-        // Read ALL files, not just the first few
         for (const fileName of mdFiles) {
             const fileUri = vscode.Uri.joinPath(historyUri, fileName);
+            
+            // Force refresh the file content by checking modification time
+            try {
+                const fileStat = await vscode.workspace.fs.stat(fileUri);
+                debugChannel.appendLine(`[DEBUG] File ${fileName} last modified: ${new Date(fileStat.mtime)}`);
+            } catch (e) {
+                debugChannel.appendLine(`[DEBUG] Could not get file stats for ${fileName}: ${e}`);
+            }
+            
             const fileContent = await vscode.workspace.fs.readFile(fileUri);
             const content = Buffer.from(fileContent).toString('utf8');
+            
+            // Debug: show file size and first few lines to verify content
+            const lines = content.split('\n');
+            debugChannel.appendLine(`[DEBUG] File ${fileName}: ${content.length} chars, ${lines.length} lines`);
+            debugChannel.appendLine(`[DEBUG] First 3 lines: ${lines.slice(0, 3).join(' | ')}`);
+            debugChannel.appendLine(`[DEBUG] Last 3 lines: ${lines.slice(-3).join(' | ')}`);
             
             // Extract topic from filename: 2025-08-03_07-59Z-user-greeting-and-request-for-assistance.md
             const topicMatch = fileName.match(/\d{4}-\d{2}-\d{2}_\d{2}-\d{2}Z-(.+)\.md$/);

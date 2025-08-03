@@ -1,5 +1,28 @@
 # Changelog
 
+## [1.1.21] - 2025-08-03
+
+### Fixed
+- Fixed timing issue with SpecStory file reading - added 2 second delay to allow file updates
+- Enhanced debug logging to show file modification times and content verification
+- Improved file refresh mechanism to ensure latest prompts are captured
+- Added detailed file content logging for better debugging
+
+## [1.1.20] - 2025-08-03
+
+### Fixed
+- Fixed SpecStory file reading to process ALL files in history folder
+- Improved chronological sorting of conversations by timestamp
+- Added version display in status bar (AI: [count] v[version])
+- Enhanced prompt selection to guarantee last 3 prompts from entire history
+
+## [1.1.19] - 2025-08-03
+
+### Fixed
+- Fixed SpecStory prompt chronological ordering to show actual last 3 prompts
+- Improved prompt timestamp sorting to ensure correct chronological selection
+- Enhanced debug logging to track prompt ordering issues
+
 ## [1.1.13] - 2025-08-03
 ### Changed
 - **Complete English localization** - all .md and .instructions.md files now fully in English
