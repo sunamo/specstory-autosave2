@@ -1,9 +1,35 @@
-# SpecStory AutoSave - Clean Install Script
-Write-Host "SpecStory AutoSave - Clean Install Script" -ForegroundColor Green
-Write-Host "========================================" -ForegroundColor Green
+# SpecStory AutoSave - Build, Release & Install Script
+Write-Host "SpecStory AutoSave - Build, Release & Install Script" -ForegroundColor Green
+Write-Host "===================================================" -ForegroundColor Green
 
-# Clean up old VSIX files first
-Write-Host "1. Cleaning old VSIX files..." -ForegroundColor Yellow
+# Get current version from package.json
+$packageJson = Get-Content "package.json" | ConvertFrom-Json
+$currentVersion = $packageJson.version
+Write-Host "Current version: $currentVersion" -ForegroundColor Cyan
+
+# Git commit and push
+Write-Host "1. Git commit and push..." -ForegroundColor Yellow
+git add .
+if ($LASTEXITCODE -ne 0) {
+    Write-Host "❌ Git add failed!" -ForegroundColor Red
+    exit 1
+}
+
+git commit -m "v$currentVersion"
+if ($LASTEXITCODE -ne 0) {
+    Write-Host "❌ Git commit failed!" -ForegroundColor Red
+    exit 1
+}
+
+git push origin master
+if ($LASTEXITCODE -ne 0) {
+    Write-Host "❌ Git push failed!" -ForegroundColor Red
+    exit 1
+}
+Write-Host "   ✅ Git commit and push completed" -ForegroundColor Green
+
+# Clean up old VSIX files
+Write-Host "2. Cleaning old VSIX files..." -ForegroundColor Yellow
 $vsixFiles = Get-ChildItem -Path "." -Filter "*.vsix" -ErrorAction SilentlyContinue
 if ($vsixFiles.Count -gt 0) {
     Write-Host "   Found $($vsixFiles.Count) old VSIX files to remove:" -ForegroundColor Cyan
@@ -16,51 +42,44 @@ if ($vsixFiles.Count -gt 0) {
     Write-Host "   No old VSIX files found" -ForegroundColor Gray
 }
 
-# Clean up TEMP cache folder
-Write-Host "1.1. Cleaning TEMP cache..." -ForegroundColor Yellow
-if (Test-Path "%TEMP%") {
-    Write-Host "   - Removing %TEMP% folder (21MB+ cache)" -ForegroundColor Gray
-    Remove-Item "%TEMP%" -Recurse -Force -ErrorAction SilentlyContinue
-    Write-Host "   ✅ TEMP cache cleaned" -ForegroundColor Green
-} else {
-    Write-Host "   No TEMP cache found" -ForegroundColor Gray
-}
-
 # Build the extension
-Write-Host "2. Building extension..." -ForegroundColor Yellow
+Write-Host "3. Building extension..." -ForegroundColor Yellow
 npm run compile
 if ($LASTEXITCODE -ne 0) {
     Write-Host "❌ Build failed!" -ForegroundColor Red
     exit 1
 }
 
-# Create VSIX package with specific name
-Write-Host "3. Creating VSIX package..." -ForegroundColor Yellow
-vsce package --allow-star-activation --out latest.vsix 2>$null
+# Create VSIX package with current version name
+Write-Host "4. Creating VSIX package..." -ForegroundColor Yellow
+$vsixName = "specstory-autosave-$currentVersion.vsix"
+vsce package --allow-star-activation --out $vsixName 2>$null
 if ($LASTEXITCODE -ne 0) {
     Write-Host "❌ VSIX creation failed!" -ForegroundColor Red
     exit 1
 }
+Write-Host "   ✅ Created: $vsixName" -ForegroundColor Green
 
 # Clean old extensions (completely silent)
-Write-Host "4. Cleaning old extensions..." -ForegroundColor Yellow
+Write-Host "5. Cleaning old extensions..." -ForegroundColor Yellow
 Start-Process -FilePath "code-insiders" -ArgumentList "--uninstall-extension", "sunamocz.specstory-autosave" -WindowStyle Hidden -Wait 2>$null
 
 # Wait a moment
 Start-Sleep -Seconds 2
 
 # Install new extension (no new window)
-Write-Host "5. Installing new extension..." -ForegroundColor Yellow
-$result = Start-Process -FilePath "code-insiders" -ArgumentList "--install-extension", "latest.vsix", "--force" -WindowStyle Hidden -Wait -PassThru
+Write-Host "6. Installing new extension..." -ForegroundColor Yellow
+$result = Start-Process -FilePath "code-insiders" -ArgumentList "--install-extension", $vsixName, "--force" -WindowStyle Hidden -Wait -PassThru
 
 if ($result.ExitCode -eq 0) {
     Write-Host "✅ Extension installed successfully!" -ForegroundColor Green
     Write-Host "📝 Please restart VS Code Insiders to see the new version" -ForegroundColor Cyan
     Write-Host "🤖 Status bar will show: AI: [count] (no version number)" -ForegroundColor Cyan
     Write-Host "📋 Test with Ctrl+Shift+A or Enter in Copilot Chat" -ForegroundColor Cyan
+    Write-Host "🔖 Version: $currentVersion" -ForegroundColor Cyan
 } else {
     Write-Host "❌ Installation failed!" -ForegroundColor Red
 }
 
-Write-Host "========================================" -ForegroundColor Green
-Write-Host "Installation complete!" -ForegroundColor Green
+Write-Host "===================================================" -ForegroundColor Green
+Write-Host "Build, Release & Installation complete!" -ForegroundColor Green

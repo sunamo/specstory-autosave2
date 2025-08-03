@@ -56,12 +56,6 @@ jspm_packages/
 .env
 .env.test
 
-# VS Code directories
-.vscode/settings.json
-.vscode/launch.json
-.vscode/extensions.json
-.vscode/tasks.json
-
 # macOS
 .DS_Store
 

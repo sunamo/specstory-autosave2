@@ -112,24 +112,6 @@ This extension is designed to enhance your AI-assisted development workflow. If 
 - **GitHub Copilot**: Active subscription and Chat extension
 - **SpecStory Extension**: Optional, for full export functionality
 
-## 🏷️ Version History
-
-### v1.0.2 - Marketplace Ready
-- ✅ Aggressive detection level as default
-- ✅ Publisher updated for marketplace publication
-- ✅ Removed external dependencies for standalone operation
-- ✅ Enhanced documentation and user experience
-
-### v1.0.1 - Enter Key Detection
-- ✅ Advanced Enter key detection in Copilot Chat
-- ✅ Multiple fallback detection methods
-- ✅ Comprehensive configuration options
-
-### v1.0.0 - Initial Release
-- ✅ Basic AI prompt detection
-- ✅ Automatic chat export integration
-- ✅ Customizable notification system
-
 ---
 
 ## 👨‍💻 Development
