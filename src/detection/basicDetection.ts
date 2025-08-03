@@ -318,9 +318,63 @@ export function initializeBasicDetection(
                     };
                     
                     logDebug('✅ Webview message hook installed');
+                } else {
+                    logDebug('⚠️ global.postMessage not found');
                 }
+                
+                // APPROACH 4: Try to hook into fetch/XMLHttpRequest for network monitoring
+                const originalFetch = (global as any).fetch;
+                if (originalFetch) {
+                    (global as any).fetch = async function(input: any, init?: any) {
+                        const url = typeof input === 'string' ? input : input.url;
+                        if (url && (url.includes('copilot') || url.includes('chat') || url.includes('openai'))) {
+                            logDebug(`🌐 FETCH REQUEST to chat service: ${url.slice(-50)}`);
+                            logAIActivity(`Network request to chat service: ${url}`);
+                            setTimeout(() => {
+                                debouncedHandleAIActivity('Network-Request');
+                            }, 100);
+                        }
+                        
+                        return originalFetch.apply(this, [input, init]);
+                    };
+                    
+                    logDebug('✅ Fetch hook installed for network monitoring');
+                } else {
+                    logDebug('⚠️ global.fetch not found');
+                }
+                
+                // APPROACH 5: Try to monitor clipboard changes (user might copy prompt before submitting)
+                if (vscode.env.clipboard) {
+                    let lastClipboardText = '';
+                    
+                    const clipboardMonitor = setInterval(async () => {
+                        try {
+                            const currentText = await vscode.env.clipboard.readText();
+                            if (currentText !== lastClipboardText && currentText.length > 10) {
+                                // Check if clipboard contains potential AI prompt
+                                if (currentText.includes('?') || currentText.toLowerCase().includes('how') || 
+                                    currentText.toLowerCase().includes('what') || currentText.toLowerCase().includes('can you')) {
+                                    logDebug(`📋 CLIPBOARD CHANGE with potential prompt: ${currentText.slice(0, 50)}...`);
+                                    logAIActivity(`Potential prompt copied to clipboard: ${currentText.slice(0, 100)}`);
+                                    
+                                    // Maybe user is about to submit this
+                                    setTimeout(() => {
+                                        debouncedHandleAIActivity('Clipboard-Prompt');
+                                    }, 200);
+                                }
+                                lastClipboardText = currentText;
+                            }
+                        } catch (error) {
+                            // Ignore clipboard access errors
+                        }
+                    }, 1000); // Check every second
+                    
+                    disposables.push({ dispose: () => clearInterval(clipboardMonitor) });
+                    logDebug('✅ Clipboard monitoring enabled');
+                }
+                
             } catch (error) {
-                logDebug(`⚠️ Webview message hook failed: ${error}`);
+                logDebug(`⚠️ Advanced hooks failed: ${error}`);
             }
             
             logDebug('✅ Enhanced command hook installed with comprehensive error handling');
