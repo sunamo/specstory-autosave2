@@ -18,7 +18,39 @@
 
 ## ⚠️ KRITICKÁ PRAVIDLA - PŘÍSNĚ DODRŽUJ!
 
-### 🚫 NIKDY nevytvářej zástupné soubory!
+### � POZNÁMKY & ZJIŠTĚNÍ
+- **Notifikace fungují správně** - zobrazují se pouze při skutečné AI aktivitě (1x)
+- **Keyboard Activity Detection** byla příliš citlivá - nyní se aktivuje pouze explicitně
+- **showAINotificationImmediately()** může mít problém s prázdnou zprávou - přidal debugování délky a obsahu
+- **VS Code Extension Development Host** má omezení pro notifikace - fallback systém je nutný
+- **Detection levels**: basic (recommended) > advanced > aggressive (experimentální)
+- **Command Hook + Webview Detection** jsou nejspolehlivější metody
+
+### 📝 PROMPT TRACKING SYSTEM
+**Automatické sledování všech promptů uživatele:**
+
+```bash
+# Vytvoření log souboru pro prompty
+echo "# AI Prompts Log - $(date)" > prompts-log.txt
+
+# Příkaz pro výpis všech promptů (zkrácené verze)
+function log-prompt() {
+    local prompt="$1"
+    local short_prompt=$(echo "$prompt" | head -c 50)
+    echo "$(date '+%Y-%m-%d %H:%M:%S') - $short_prompt..." >> prompts-log.txt
+}
+
+# Export všech promptů do souboru
+Get-Content prompts-log.txt | Sort-Object
+```
+
+**Implementace do extension.ts:**
+- Každý detekovaný prompt se loguje do `prompts-history.txt`
+- Format: `YYYY-MM-DD HH:MM:SS - [první 50 znaků]...`
+- Příkaz `specstoryautosave.exportPromptHistory` pro export
+- Automatické rotace logu (max 1000 záznamů)
+
+### �🚫 NIKDY nevytvářej zástupné soubory!
 - **ZAKÁZÁNO:** `extension_backup.ts`, `extension_clean.ts`, `extension_old.ts` atd.
 - Edituj POUZE původní soubory přímo
 - Pokud potřebuješ vrátit změny, použij git revert

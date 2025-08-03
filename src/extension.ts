@@ -7,6 +7,8 @@ let copilotOutputChannel: vscode.OutputChannel | undefined;
 let aiPromptCounter = 0;
 let lastDetectedTime = 0;
 let countdownTimer: NodeJS.Timeout | undefined;
+let promptHistory: string[] = [];
+const MAX_PROMPT_HISTORY = 1000;
 
 export function activate(context: vscode.ExtensionContext) {
     // Create output channels
@@ -131,10 +133,14 @@ export function activate(context: vscode.ExtensionContext) {
     const resetCounter = vscode.commands.registerCommand('specstoryautosave.resetPromptCounter', () => {
         aiPromptCounter = 0;
         lastDetectedTime = 0;
+        promptHistory = []; // Also clear prompt history
         updateStatusBar();
         debugChannel.appendLine('[DEBUG] AI prompt counter reset to 0');
-        vscode.window.showInformationMessage('AI prompt counter reset to 0');
+        vscode.window.showInformationMessage('AI prompt counter and history reset');
     });
+
+    // Register export prompt history command
+    const exportPrompts = vscode.commands.registerCommand('specstoryautosave.exportPromptHistory', exportPromptHistory);
 
     // Add commands to context
     context.subscriptions.push(findSpecStoryCommands);
@@ -146,6 +152,7 @@ export function activate(context: vscode.ExtensionContext) {
     context.subscriptions.push(testCopilotDetection);
     context.subscriptions.push(showPromptStats);
     context.subscriptions.push(resetCounter);
+    context.subscriptions.push(exportPrompts);
     context.subscriptions.push(outputChannel);
     context.subscriptions.push(debugChannel);
     
@@ -704,6 +711,9 @@ function handleAIActivity() {
     debugChannel.appendLine(`[DEBUG] AI activity detected! Counter: ${aiPromptCounter}`);
     debugChannel.appendLine(`[DEBUG] Notifications enabled: ${enableNotifications}, Frequency: ${frequency}`);
     
+    // Log this prompt activity
+    logPromptActivity('AI Detection', `Prompt #${aiPromptCounter}`);
+    
     if (enableNotifications && (aiPromptCounter % frequency === 0)) {
         debugChannel.appendLine(`[DEBUG] Will show notification (counter ${aiPromptCounter} matches frequency ${frequency})`);
         showAINotificationImmediately();
@@ -717,10 +727,16 @@ function handleAIActivity() {
 function showAINotificationImmediately() {
     const config = vscode.workspace.getConfiguration('specstoryautosave');
     const defaultMessage = 'AI prompt detected! Please check:\n• Did AI understand your question correctly?\n• If working with HTML, inspect for invisible elements\n• Verify the response quality and accuracy';
-    const message = config.get<string>('aiNotificationMessage', defaultMessage);
+    let message = config.get<string>('aiNotificationMessage', defaultMessage);
+    
+    // Ensure message is not empty and has proper content
+    if (!message || message.trim().length === 0) {
+        message = defaultMessage;
+    }
     
     debugChannel.appendLine('[DEBUG] Showing AI notification immediately');
-    debugChannel.appendLine(`[DEBUG] Message: ${message}`);
+    debugChannel.appendLine(`[DEBUG] Message length: ${message.length}`);
+    debugChannel.appendLine(`[DEBUG] Message content: "${message}"`);
     
     // Clear any existing countdown
     if (countdownTimer) {
@@ -776,6 +792,58 @@ function updateStatusBar() {
         statusBarItem.text = `$(robot) AI: ${aiPromptCounter}`;
         statusBarItem.backgroundColor = undefined;
         statusBarItem.show();
+    }
+}
+
+function logPromptActivity(detectionMethod: string, context?: string) {
+    const timestamp = new Date().toISOString().substring(0, 19).replace('T', ' ');
+    let promptSummary = `${detectionMethod}`;
+    
+    if (context) {
+        // Extract first 50 characters as prompt summary
+        const shortContext = context.substring(0, 50).replace(/\n/g, ' ').trim();
+        promptSummary += ` - ${shortContext}...`;
+    }
+    
+    const logEntry = `${timestamp} - ${promptSummary}`;
+    promptHistory.push(logEntry);
+    
+    // Keep only last 1000 entries
+    if (promptHistory.length > MAX_PROMPT_HISTORY) {
+        promptHistory = promptHistory.slice(-MAX_PROMPT_HISTORY);
+    }
+    
+    debugChannel.appendLine(`[PROMPT-LOG] ${logEntry}`);
+}
+
+async function exportPromptHistory() {
+    if (promptHistory.length === 0) {
+        vscode.window.showInformationMessage('No prompts recorded yet.');
+        return;
+    }
+    
+    const workspaceFolder = vscode.workspace.workspaceFolders?.[0];
+    if (!workspaceFolder) {
+        vscode.window.showErrorMessage('No workspace folder found for export.');
+        return;
+    }
+    
+    const exportPath = vscode.Uri.joinPath(workspaceFolder.uri, 'prompts-history.txt');
+    const content = [
+        `# AI Prompts History - Generated ${new Date().toISOString()}`,
+        `# Total prompts recorded: ${promptHistory.length}`,
+        '',
+        ...promptHistory
+    ].join('\n');
+    
+    try {
+        await vscode.workspace.fs.writeFile(exportPath, Buffer.from(content, 'utf8'));
+        vscode.window.showInformationMessage(`Prompt history exported to: ${exportPath.fsPath}`);
+        // Open the file
+        const document = await vscode.workspace.openTextDocument(exportPath);
+        vscode.window.showTextDocument(document);
+    } catch (error) {
+        vscode.window.showErrorMessage(`Failed to export prompt history: ${error}`);
     }
 }
 
