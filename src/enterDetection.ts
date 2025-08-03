@@ -72,9 +72,17 @@ export function initializeEnterKeyDetection(
         
         debugChannel.appendLine(`[DEBUG] 📝 TEXT CHANGE: scheme="${scheme}", uri="${uri.substring(0, 80)}...", isInCopilot=${isInCopilotChat}`);
         
-        if (!isInCopilotChat) {
-            debugChannel.appendLine('[DEBUG] 📝 Skipping - not in Copilot Chat');
+        // IMPORTANT: Process chat-editing-snapshot-text-model even if isInCopilotChat is false
+        const isChatEditingModel = scheme === 'chat-editing-snapshot-text-model';
+        
+        if (!isInCopilotChat && !isChatEditingModel) {
+            debugChannel.appendLine('[DEBUG] 📝 Skipping - not in Copilot Chat and not chat-editing-snapshot-text-model');
             return;
+        }
+        
+        if (isChatEditingModel && !isInCopilotChat) {
+            debugChannel.appendLine('[DEBUG] 📝 FORCING Copilot detection ON - found chat-editing-snapshot-text-model!');
+            isInCopilotChat = true;
         }
         
         if (event.contentChanges.length > 0) {
@@ -111,5 +119,37 @@ export function initializeEnterKeyDetection(
     
     debugChannel.appendLine('[DEBUG] 💡 Detection ready - Focus on Copilot Chat and send a message');
     
-    return [editorChangeListener, textChangeListener];
+    // Method 3: Continuous monitoring (fallback for when editor change events don't fire)
+    const continuousMonitor = setInterval(() => {
+        const activeEditor = vscode.window.activeTextEditor;
+        if (activeEditor) {
+            const scheme = activeEditor.document.uri.scheme;
+            const uri = activeEditor.document.uri.toString();
+            
+            const isCopilotChat = (
+                scheme === 'chat-editing-snapshot-text-model' ||
+                (scheme === 'webview-panel' && (uri.includes('github.copilot-chat') || uri.includes('github.copilot'))) ||
+                scheme === 'vscode-chat' ||
+                uri.toLowerCase().includes('github.copilot') ||
+                uri.includes('copilot-chat') ||
+                scheme.includes('chat')
+            );
+            
+            if (isCopilotChat !== isInCopilotChat) {
+                isInCopilotChat = isCopilotChat;
+                debugChannel.appendLine(`[DEBUG] 🔄 CONTINUOUS MONITOR: ${isCopilotChat ? '🎯 Copilot Chat DETECTED' : '📤 Copilot Chat OFF'} (${scheme})`);
+                debugChannel.appendLine(`[DEBUG] 🔄 URI: ${uri.substring(0, 100)}...`);
+                if (isInCopilotChat) {
+                    lastTextContent = '';
+                    debugChannel.appendLine('[DEBUG] 🔄 Ready to detect message sending via continuous monitor!');
+                }
+            }
+        }
+    }, 1000); // Check every second
+    
+    const continuousMonitorDisposable = new vscode.Disposable(() => {
+        clearInterval(continuousMonitor);
+    });
+    
+    return [editorChangeListener, textChangeListener, continuousMonitorDisposable];
 }
