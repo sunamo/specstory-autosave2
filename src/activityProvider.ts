@@ -282,7 +282,7 @@ export class AIActivityProvider implements vscode.WebviewViewProvider {
                     // Transform all collected prompts to display format
                     const specstoryPrompts = allUserPrompts.map((prompt, index) => {
                         const shortPrompt = prompt.length > 120 ? prompt.substring(0, 120) + '...' : prompt;
-                        const displayNumber = `#${index + 1} (SpecStory)`;
+                        const displayNumber = `#${index + 1}`;
 
                         return {
                             timestamp: displayNumber,
@@ -292,7 +292,7 @@ export class AIActivityProvider implements vscode.WebviewViewProvider {
                     });
 
                     // Separate current notifikace (non-SpecStory) from SpecStory prompts
-                    const currentNotifications = this._prompts.filter(p => !p.timestamp.includes('(SpecStory)'));
+                    const currentNotifications = this._prompts.filter(p => !p.timestamp.includes('#') || p.timestamp.includes(' - '));
                     
                     // Combine: current notifications first, then SpecStory prompts
                     this._prompts = [...currentNotifications, ...specstoryPrompts];

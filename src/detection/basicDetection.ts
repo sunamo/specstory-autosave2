@@ -29,13 +29,9 @@ export function initializeBasicDetection(
                 logDebug(`🎯 COPILOT CHAT PANEL DETECTED: ${uri}`);
                 logAIActivity(`Copilot Chat panel activated: ${uri}`);
                 
-                const now = Date.now();
-                if (now - lastDetectedTime.value > 1000) {
-                    lastDetectedTime.value = now;
-                    logDebug('🚀 BASIC WEBVIEW DETECTION!');
-                    logAIActivity('AI activity detected via webview panel activation');
-                    handleAIActivity();
-                }
+                logDebug('🚀 BASIC WEBVIEW DETECTION!');
+                logAIActivity('AI activity detected via webview panel activation');
+                handleAIActivity();
             }
         });
         disposables.push(disposable1);
@@ -82,13 +78,8 @@ export function initializeBasicDetection(
                         cmd === 'workbench.panel.chat.view.copilot.focus') {
                         
                         debugChannel.appendLine(`[DEBUG] 🎯 COPILOT COMMAND: ${command}`);
-                        
-                        const now = Date.now();
-                        if (now - lastDetectedTime.value > 500) {
-                            lastDetectedTime.value = now;
-                            debugChannel.appendLine('[DEBUG] 🚀 COMMAND HOOK DETECTION!');
-                            handleAIActivity();
-                        }
+                        debugChannel.appendLine('[DEBUG] 🚀 COMMAND HOOK DETECTION!');
+                        handleAIActivity();
                     }
                 }
                 

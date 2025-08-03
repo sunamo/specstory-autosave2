@@ -75,13 +75,8 @@ export function initializeAggressiveDetection(
                     
                     if (consecutiveSpikes >= 3) {
                         debugChannel.appendLine(`[DEBUG] 🧠 Sustained memory activity: +${Math.round(memoryIncrease/1000000)}MB`);
-                        
-                        const now = Date.now();
-                        if (now - lastDetectedTime.value > 10000) {
-                            lastDetectedTime.value = now;
-                            debugChannel.appendLine('[DEBUG] 🚀 AGGRESSIVE MEMORY DETECTION!');
-                            handleAIActivity();
-                        }
+                        debugChannel.appendLine('[DEBUG] 🚀 AGGRESSIVE MEMORY DETECTION!');
+                        handleAIActivity();
                         consecutiveSpikes = 0;
                     }
                 } else {
@@ -180,12 +175,8 @@ export function initializeAggressiveDetection(
                     
                     keyPressTimer = setTimeout(() => {
                         if (keyPressCount > 500) { // Very large amount of text - likely AI generated
-                            const now = Date.now();
-                            if (now - lastDetectedTime.value > 5000) { // Longer cooldown to prevent spam
-                                lastDetectedTime.value = now;
-                                debugChannel.appendLine(`[DEBUG] 🚀 KEYBOARD ACTIVITY DETECTION! (${keyPressCount} chars)`);
-                                handleAIActivity();
-                            }
+                            debugChannel.appendLine(`[DEBUG] 🚀 KEYBOARD ACTIVITY DETECTION! (${keyPressCount} chars)`);
+                            handleAIActivity();
                         }
                         keyPressCount = 0;
                     }, 2000);
