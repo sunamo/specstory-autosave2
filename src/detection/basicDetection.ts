@@ -35,9 +35,10 @@ function initializeSpecStoryWatcher(handleAIActivity: () => void, debugChannel: 
         };
         
         fileWatcher.onDidCreate(onSpecStoryChange);
-        fileWatcher.onDidChange(onSpecStoryChange);
+        // DISABLED: onDidChange causes duplicate detection with onDidCreate
+        // fileWatcher.onDidChange(onSpecStoryChange);
         
-        logDebug('📁 SpecStory file watcher initialized');
+        logDebug('📁 SpecStory file watcher initialized (CREATE only)');
         return fileWatcher;
     } catch (error) {
         logDebug(`⚠️ SpecStory file watcher failed: ${error}`);
@@ -324,11 +325,13 @@ export function initializeBasicDetection(
     disposables.push(disposable7);
     */
     
-    // NEW: Polling mechanism as backup detection
+    // DISABLED: Polling mechanism - testing for duplicates
+    /*
     const pollingInterval = initializePollingDetection(() => debouncedHandleAIActivity('Polling'), debugChannel);
     if (pollingInterval) {
         disposables.push({ dispose: () => clearInterval(pollingInterval) });
     }
+    */
     
     logDebug('✅ Enhanced basic detection with multiple fallback methods installed');
     logDebug('💡 If detection still fails, use Ctrl+Shift+P → "SpecStoryAutoSave: Force AI Notification"');
