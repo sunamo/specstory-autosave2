@@ -11,8 +11,7 @@ export function initializeAggressiveDetection(
     shouldUseCodeInsertion: boolean = false, 
     shouldUseMemory: boolean = false, 
     shouldUseTerminal: boolean = false, 
-    shouldUseFileSystem: boolean = false, 
-    shouldUseKeyboardActivity: boolean = false
+    shouldUseFileSystem: boolean = false
 ) {
     debugChannel.appendLine('[DEBUG] ⚡ Initializing AGGRESSIVE detection (all methods)...');
     
@@ -154,39 +153,6 @@ export function initializeAggressiveDetection(
         disposables.push({ dispose: () => { if (fileChangeTimer) clearTimeout(fileChangeTimer); } });
         
         debugChannel.appendLine('[DEBUG] 📁 File system monitoring enabled');
-    }
-    
-    // Keyboard activity detection
-    if (shouldUseKeyboardActivity) {
-        let keyPressCount = 0;
-        let keyPressTimer: NodeJS.Timeout | undefined;
-        
-        const disposable4 = vscode.workspace.onDidChangeTextDocument((e) => {
-            if (e.contentChanges.length > 0) {
-                const totalChars = e.contentChanges.reduce((sum, change) => sum + change.text.length, 0);
-                
-                // Only detect fast typing - FASTER threshold for AI
-                if (totalChars > 10) { // Much lower threshold - detect AI activity faster
-                    keyPressCount += totalChars;
-                    
-                    if (keyPressTimer) {
-                        clearTimeout(keyPressTimer);
-                    }
-                    
-                    keyPressTimer = setTimeout(() => {
-                        if (keyPressCount > 30) { // Much lower threshold - detect faster
-                            debugChannel.appendLine(`[DEBUG] 🚀 FAST KEYBOARD ACTIVITY DETECTION! (${keyPressCount} chars)`);
-                            handleAIActivity();
-                        }
-                        keyPressCount = 0;
-                    }, 800); // Shorter timeout - faster reaction
-                }
-            }
-        });
-        disposables.push(disposable4);
-        disposables.push({ dispose: () => { if (keyPressTimer) clearTimeout(keyPressTimer); } });
-        
-        debugChannel.appendLine('[DEBUG] ⌨️ Keyboard activity detection enabled');
     }
     
     debugChannel.appendLine('[DEBUG] ✅ Aggressive detection with all methods installed');

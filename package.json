@@ -2,7 +2,7 @@
   "name": "specstory-autosave",
   "displayName": "SpecStory AutoSave + AI Copilot Prompt Detection",
   "description": "Auto-exports GitHub Copilot Chat to SpecStory documentation + instant AI prompt detection with quality verification notifications",
-  	"version": "1.1.68",
+  	"version": "1.1.69",
   "publisher": "sunamocz",
   "icon": "icon.png",
   "repository": {
@@ -94,10 +94,6 @@
       {
         "command": "specstoryautosave.toggleAINotifications",
         "title": "SpecStory AutoSave + AI Copilot Prompt Detection: Toggle AI Notifications"
-      },
-      {
-        "command": "specstoryautosave.keyboardTrigger",
-        "title": "SpecStory AutoSave + AI Copilot Prompt Detection: Trigger AI Notification (Keyboard Test)"
       },
       {
         "command": "specstoryautosave.testHistoryDetection",
@@ -203,11 +199,6 @@
           "type": "boolean",
           "default": false,
           "description": "Enable detection based on rapid file changes and creation patterns (experimental - may cause false positives)"
-        },
-        "specstoryautosave.enableKeyboardActivityDetection": {
-          "type": "boolean",
-          "default": true,
-          "description": "Enable detection based on fast typing patterns typical for AI code generation (fast detection method)"
         },
         "specstoryautosave.notificationDisplayType": {
           "type": "string",

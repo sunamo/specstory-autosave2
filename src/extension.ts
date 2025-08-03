@@ -162,7 +162,6 @@ function initializeCopilotMonitoring(context: vscode.ExtensionContext) {
                 const enableMemory = config.get<boolean>('enableMemoryDetection', false);
                 const enableTerminal = config.get<boolean>('enableTerminalDetection', false);
                 const enableFileSystem = config.get<boolean>('enableFileSystemDetection', false);
-                const enableKeyboard = config.get<boolean>('enableKeyboardActivityDetection', false);
                 
                 const basicDisposables = initializeBasicDetection(
                     createAIActivityHandler(),
@@ -186,8 +185,7 @@ function initializeCopilotMonitoring(context: vscode.ExtensionContext) {
                     enableCodeInsertion,
                     enableMemory,
                     enableTerminal,
-                    enableFileSystem,
-                    enableKeyboard
+                    enableFileSystem
                 );
                 
                 [...basicDisposables, ...advancedDisposables, ...aggressiveDisposables].forEach(d => context.subscriptions.push(d));

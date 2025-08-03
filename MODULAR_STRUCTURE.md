@@ -11,7 +11,7 @@ Rozdělen do logických celků pro lepší údržbu a rozšiřitelnost.
 ### 🔍 Detection (detekce AI aktivity)
 - **`detection/basicDetection.ts`** - Základní detekce (command hooks, webview monitoring)
 - **`detection/advancedDetection.ts`** - Pokročilá detekce (pattern detection, enhanced webview)
-- **`detection/aggressiveDetection.ts`** - Agresivní detekce (memory, filesystem, keyboard)
+- **`detection/aggressiveDetection.ts`** - Agresivní detekce (memory, filesystem)
 
 ### 📊 SpecStory integrace
 - **`specstory/historyReader.ts`** - Čtení SpecStory konverzací z historie
@@ -81,7 +81,7 @@ enableCodeInsertionDetection: boolean
 enableMemoryDetection: boolean
 enableTerminalDetection: boolean
 enableFileSystemDetection: boolean
-enableKeyboardActivityDetection: boolean
+enableFileSystemDetection: boolean
 ```
 
 ### Notification systém

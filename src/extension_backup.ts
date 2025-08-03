@@ -319,12 +319,6 @@ export function activate(context: vscode.ExtensionContext) {
         });
     });
 
-    // Register keyboard shortcut for AI notification (for testing)
-    const keyboardTrigger = vscode.commands.registerCommand('specstoryautosave.keyboardTrigger', () => {
-        debugChannel.appendLine('[DEBUG] 🎹 KEYBOARD TRIGGER: Simulating AI prompt detection');
-        handleAIActivity();
-    });
-
     // Register force AI notification command (alternative method)
     const forceAINotification = vscode.commands.registerCommand('specstoryautosave.forceAINotification', () => {
         debugChannel.appendLine('[DEBUG] 🔧 FORCE TRIGGER: User manually triggered AI notification');
@@ -393,7 +387,7 @@ export function activate(context: vscode.ExtensionContext) {
             }
             
             // If all commands failed, try pressing Enter programmatically
-            debugChannel.appendLine('[DEBUG] 🔵 All commands failed, trying keyboard simulation');
+            debugChannel.appendLine('[DEBUG] 🔵 All commands failed, trying fallback methods');
             await vscode.commands.executeCommand('type', { text: '\n' });
             
         } catch (error) {
@@ -406,7 +400,6 @@ export function activate(context: vscode.ExtensionContext) {
     context.subscriptions.push(testSpecStoryDialog);
     context.subscriptions.push(testCommand);
     context.subscriptions.push(testAINotification);
-    context.subscriptions.push(keyboardTrigger);
     context.subscriptions.push(forceAINotification);
     context.subscriptions.push(testCopilotDetection);
     context.subscriptions.push(showPromptStats);
@@ -431,12 +424,11 @@ function initializeCopilotMonitoring() {
     const enableMemory = config.get<boolean>('enableMemoryDetection', false);
     const enableTerminal = config.get<boolean>('enableTerminalDetection', false);
     const enableFileSystem = config.get<boolean>('enableFileSystemDetection', false);
-    const enableKeyboardActivity = config.get<boolean>('enableKeyboardActivityDetection', false);
     
     debugChannel.appendLine(`[DEBUG] Initializing Copilot monitoring - Level: ${detectionLevel}`);
-    debugChannel.appendLine(`[DEBUG] Individual settings: CommandHook=${enableCommandHook}, Webview=${enableWebview}, PanelFocus=${enablePanelFocus}, Pattern=${enablePattern}, CodeInsertion=${enableCodeInsertion}, Memory=${enableMemory}, Terminal=${enableTerminal}, FileSystem=${enableFileSystem}, KeyboardActivity=${enableKeyboardActivity}`);
+    debugChannel.appendLine(`[DEBUG] Individual settings: CommandHook=${enableCommandHook}, Webview=${enableWebview}, PanelFocus=${enablePanelFocus}, Pattern=${enablePattern}, CodeInsertion=${enableCodeInsertion}, Memory=${enableMemory}, Terminal=${enableTerminal}, FileSystem=${enableFileSystem}`);
     
-    if (detectionLevel === 'off' && !enableCommandHook && !enableWebview && !enablePanelFocus && !enablePattern && !enableCodeInsertion && !enableMemory && !enableTerminal && !enableFileSystem && !enableKeyboardActivity) {
+    if (detectionLevel === 'off' && !enableCommandHook && !enableWebview && !enablePanelFocus && !enablePattern && !enableCodeInsertion && !enableMemory && !enableTerminal && !enableFileSystem) {
         debugChannel.appendLine('[DEBUG] All detection is OFF - no monitoring will be performed');
         debugChannel.appendLine('[DEBUG] 💡 To enable detection, change detectionLevel or enable individual detection methods in settings');
         return;
@@ -453,7 +445,6 @@ function initializeCopilotMonitoring() {
         const shouldUseMemory = enableMemory || (detectionLevel === 'aggressive');
         const shouldUseTerminal = enableTerminal; // Only when explicitly enabled
         const shouldUseFileSystem = enableFileSystem; // Only when explicitly enabled  
-        const shouldUseKeyboardActivity = enableKeyboardActivity; // Only when explicitly enabled
         
         if (shouldUseCommandHook || shouldUseWebview || shouldUsePanelFocus) {
             initializeBasicDetection(shouldUseCommandHook, shouldUseWebview, shouldUsePanelFocus);
@@ -464,7 +455,7 @@ function initializeCopilotMonitoring() {
         }
         
         if (shouldUseCodeInsertion || shouldUseMemory) {
-            initializeAggressiveDetection(shouldUseCodeInsertion, shouldUseMemory, shouldUseTerminal, shouldUseFileSystem, shouldUseKeyboardActivity);
+            initializeAggressiveDetection(shouldUseCodeInsertion, shouldUseMemory, shouldUseTerminal, shouldUseFileSystem);
         }
         
         // Diagnostics after activation attempts
@@ -723,7 +714,7 @@ function initializeAdvancedDetection() {
         }
     });
     
-    // Webview and keyboard detection
+    // Webview detection
     vscode.window.onDidChangeActiveTextEditor((editor) => {
         if (!editor) return;
         
@@ -783,7 +774,7 @@ function initializeAdvancedDetection() {
     debugChannel.appendLine('[DEBUG] ✅ Advanced detection with webview hooks installed');
 }
 
-function initializeAggressiveDetection(shouldUseCodeInsertion: boolean = false, shouldUseMemory: boolean = false, shouldUseTerminal: boolean = false, shouldUseFileSystem: boolean = false, shouldUseKeyboardActivity: boolean = false) {
+function initializeAggressiveDetection(shouldUseCodeInsertion: boolean = false, shouldUseMemory: boolean = false, shouldUseTerminal: boolean = false, shouldUseFileSystem: boolean = false) {
     debugChannel.appendLine('[DEBUG] ⚡ Initializing AGGRESSIVE detection (all methods)...');
     
     const config = vscode.workspace.getConfiguration('specstoryautosave');
@@ -921,41 +912,6 @@ function initializeAggressiveDetection(shouldUseCodeInsertion: boolean = false, 
         fileWatcher.onDidDelete(onFileChange);
         
         debugChannel.appendLine('[DEBUG] 📁 File system monitoring enabled');
-    }
-    
-    // Keyboard activity detection
-    if (shouldUseKeyboardActivity) {
-        let keyPressCount = 0;
-        let keyPressTimer: NodeJS.Timeout | undefined;
-        
-        vscode.workspace.onDidChangeTextDocument((e) => {
-            if (e.contentChanges.length > 0) {
-                const totalChars = e.contentChanges.reduce((sum, change) => sum + change.text.length, 0);
-                
-                // Only detect very large insertions (typical for AI code generation)
-                if (totalChars > 200) { // Much higher threshold - AI typically generates lots of code at once
-                    keyPressCount += totalChars;
-                    
-                    if (keyPressTimer) {
-                        clearTimeout(keyPressTimer);
-                    }
-                    
-                    keyPressTimer = setTimeout(() => {
-                        if (keyPressCount > 500) { // Very large amount of text - likely AI generated
-                            const now = Date.now();
-                            if (now - lastDetectedTime > 5000) { // Longer cooldown to prevent spam
-                                lastDetectedTime = now;
-                                debugChannel.appendLine(`[DEBUG] 🚀 KEYBOARD ACTIVITY DETECTION! (${keyPressCount} chars)`);
-                                handleAIActivity();
-                            }
-                        }
-                        keyPressCount = 0;
-                    }, 2000); // Longer timeout to accumulate more changes
-                }
-            }
-        });
-        
-        debugChannel.appendLine('[DEBUG] ⌨️ Keyboard activity monitoring enabled');
     }
     
     debugChannel.appendLine('[DEBUG] ✅ Aggressive detection installed');
