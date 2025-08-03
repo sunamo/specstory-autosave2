@@ -48,11 +48,44 @@ export function handleAIActivity(
             debugChannel.appendLine(`[DEBUG] ❌ Error showing notification: ${error}`);
         });
         debugChannel.appendLine(`[DEBUG] ✅ showNotificationCallback() CALLED (async)`);
+
+        // Ask user if they want to run install.ps1
+        vscode.window.showInformationMessage(
+            'AI prompt detected! Do you want to run install.ps1?',
+            'Run install.ps1',
+            'Skip'
+        ).then(selection => {
+            if (selection === 'Run install.ps1') {
+                debugChannel.appendLine(`[DEBUG] 🔧 User chose to run install.ps1`);
+
+                // Get workspace folder path
+                const workspaceFolders = vscode.workspace.workspaceFolders;
+                if (workspaceFolders && workspaceFolders.length > 0) {
+                    const workspacePath = workspaceFolders[0].uri.fsPath;
+
+                    // Create a new terminal and run install.ps1
+                    const terminal = vscode.window.createTerminal({
+                        name: 'Install Script',
+                        cwd: workspacePath
+                    });
+
+                    terminal.sendText('.\\install.ps1');
+                    terminal.show();
+
+                    debugChannel.appendLine(`[DEBUG] 🚀 install.ps1 executed in terminal`);
+                } else {
+                    debugChannel.appendLine(`[DEBUG] ❌ No workspace folder found`);
+                    vscode.window.showErrorMessage('No workspace folder found to run install.ps1');
+                }
+            } else {
+                debugChannel.appendLine(`[DEBUG] ⏭️ User chose to skip install.ps1`);
+            }
+            updateStatusBarCallback();
+        });
     } else {
         debugChannel.appendLine(`[DEBUG] ❌ Notifications disabled in settings`);
+        updateStatusBarCallback();
     }
-    
-    updateStatusBarCallback();
 }
 
 export async function generateSmartNotificationMessage(debugChannel: vscode.OutputChannel): Promise<string> {

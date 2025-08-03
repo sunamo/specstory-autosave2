@@ -116,10 +116,7 @@ function initializeCopilotMonitoring(context: vscode.ExtensionContext) {
                 const disposables = initializeBasicDetection(
                     createAIActivityHandler(),
                     debugChannel,
-                    lastDetectedTime,
-                    enableCommandHook,
-                    enableWebview,
-                    enablePanelFocus
+                    lastDetectedTime
                 );
                 
                 disposables.forEach(d => context.subscriptions.push(d));
@@ -136,10 +133,7 @@ function initializeCopilotMonitoring(context: vscode.ExtensionContext) {
                 const basicDisposables = initializeBasicDetection(
                     createAIActivityHandler(),
                     debugChannel,
-                    lastDetectedTime,
-                    enableCommandHook,
-                    enableWebview,
-                    enablePanelFocus
+                    lastDetectedTime
                 );
                 
                 // Advanced detection
@@ -171,10 +165,7 @@ function initializeCopilotMonitoring(context: vscode.ExtensionContext) {
                 const basicDisposables = initializeBasicDetection(
                     createAIActivityHandler(),
                     debugChannel,
-                    lastDetectedTime,
-                    enableCommandHook,
-                    enableWebview,
-                    enablePanelFocus
+                    lastDetectedTime
                 );
                 allDisposables.push(...basicDisposables);
                 
