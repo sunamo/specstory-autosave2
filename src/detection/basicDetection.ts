@@ -23,7 +23,7 @@ function initializeSpecStoryWatcher(handleAIActivity: () => void, debugChannel: 
         const onSpecStoryChange = (uri: vscode.Uri) => {
             const now = Date.now();
             // Reduce debounce time for faster detection
-            if (now - lastFileChange > 100) { // Reduced from 500ms to 100ms
+            if (now - lastFileChange > 50) { // Reduced from 100ms to 50ms for ultra-fast response
                 lastFileChange = now;
                 logDebug(`📝 SpecStory file changed: ${uri.fsPath}`);
                 logDebug('🚀 SPECSTORY FILE DETECTION!');
@@ -64,7 +64,7 @@ export function initializeBasicDetection(
     // ADD GLOBAL DEBOUNCE MECHANISM to prevent duplicate detections
     let lastGlobalDetection = 0;
     let lastDetectionSource = '';
-    const DEBOUNCE_MS = 1500; // Increased to 1.5 seconds to prevent all duplicates
+    const DEBOUNCE_MS = 800; // Reduced from 1500ms to 800ms for faster response
     
     const debouncedHandleAIActivity = (source = 'unknown') => {
         const now = Date.now();
@@ -102,8 +102,8 @@ export function initializeBasicDetection(
     // });
     // disposables.push(disposableUniversal);
     
-    // Method 1: Monitor chat panel visibility and focus (DISABLED - testing for duplicates)
-    if (false && enableWebview) {
+    // Method 1: Monitor chat panel visibility and focus (RE-ENABLED for immediate response)
+    if (enableWebview) {
         const disposable1 = vscode.window.onDidChangeActiveTextEditor((editor) => {
             if (!editor) return;
             
@@ -180,8 +180,8 @@ export function initializeBasicDetection(
         disposables.push(disposable2b);
     }
     
-    // Method 3: Enhanced command hook (DISABLED - testing for duplicates)
-    if (false && enableCommandHook) {
+    // Method 3: Enhanced command hook (RE-ENABLED for immediate command detection)
+    if (enableCommandHook) {
         try {
             const originalExecuteCommand = vscode.commands.executeCommand;
             
