@@ -373,6 +373,13 @@ export function initializeBasicDetection(
         if ((uri.includes('copilot') || uri.includes('chat')) && 
             event.contentChanges.length > 0) {
             
+            logDebug(`⌨️ DOCUMENT CHANGE IN CHAT: ${uri}`);
+            logDebug(`📝 Changes: ${event.contentChanges.length}`);
+            
+            event.contentChanges.forEach((change, index) => {
+                logDebug(`   Change ${index}: text="${change.text}" rangeLength=${change.rangeLength} range=${change.range.start.line}:${change.range.start.character}-${change.range.end.line}:${change.range.end.character}`);
+            });
+            
             // Check for Enter key press (empty change after user input)
             const hasEnterPress = event.contentChanges.some(change => 
                 change.text === '' && change.rangeLength > 0 // Text being removed/submitted
@@ -387,17 +394,59 @@ export function initializeBasicDetection(
                 change.text.trim().length > 0
             );
             
-            if (hasEnterPress || hasUserTyping) {
-                logDebug(`⌨️ USER ACTIVITY IN CHAT: ${uri} (Enter: ${hasEnterPress}, Typing: ${hasUserTyping})`);
-                logAIActivity(`User activity detected in chat: ${uri}`);
-                // Very short delay to capture full prompt submission
+            // NEW: Detect potential prompt submission patterns
+            const hasPromptSubmission = event.contentChanges.some(change => 
+                (change.text === '\n' && change.rangeLength === 0) || // Enter key
+                (change.text === '' && change.rangeLength > 10) || // Large deletion (submission)
+                (change.text.includes('?') && change.text.length < 100) // Question submission
+            );
+            
+            if (hasEnterPress || hasUserTyping || hasPromptSubmission) {
+                logDebug(`🚀 USER INTERACTION DETECTED: ${uri} (Enter: ${hasEnterPress}, Typing: ${hasUserTyping}, Submission: ${hasPromptSubmission})`);
+                logAIActivity(`User interaction detected in chat: ${uri}`);
+                
+                // INSTANT TRIGGER for any chat activity - no debounce delay!
                 setTimeout(() => {
-                    debouncedHandleAIActivity('User-Typing');
-                }, hasEnterPress ? 50 : 100); // Faster for Enter press
+                    logDebug(`📞 IMMEDIATE ACTIVITY TRIGGER from chat interaction`);
+                    debouncedHandleAIActivity('Chat-Interaction');
+                }, 10); // Almost instant - just 10ms delay
             }
         }
     });
     disposables.push(disposable7);
+    
+    // NEW: Ultra-aggressive chat monitoring - ANY cursor movement in chat
+    const disposable7b = vscode.window.onDidChangeTextEditorSelection((event) => {
+        const editor = event.textEditor;
+        if (!editor) return;
+        
+        const uri = editor.document.uri.toString();
+        
+        // Monitor ANY selection change in chat context
+        if (uri.includes('copilot') || uri.includes('chat') || uri.includes('github.copilot')) {
+            
+            // Log every cursor movement for debugging
+            event.selections.forEach((selection, index) => {
+                logDebug(`🔍 CURSOR MOVEMENT ${index}: line=${selection.start.line} char=${selection.start.character} empty=${selection.isEmpty}`);
+            });
+            
+            // Trigger on ANY activity - even cursor moves
+            if (event.selections.length > 0) {
+                logDebug(`🎯 ANY CHAT ACTIVITY: ${uri}`);
+                
+                // Very frequent triggers to catch prompt submission
+                setTimeout(() => {
+                    logDebug(`📞 CURSOR ACTIVITY TRIGGER in chat`);
+                    // Use shorter debounce for cursor activity
+                    const now = Date.now();
+                    if (now - lastGlobalDetection > 200) { // Only 200ms debounce for cursor
+                        debouncedHandleAIActivity('Chat-Cursor');
+                    }
+                }, 5); // Almost instant
+            }
+        }
+    });
+    disposables.push(disposable7b);
     
     // RE-ENABLED: Polling mechanism as backup for immediate detection
     const pollingInterval = initializePollingDetection(() => debouncedHandleAIActivity('Polling'), debugChannel);
