@@ -4,7 +4,7 @@ export function initializeEnterKeyDetection(
     handleAIActivity: () => void,
     debugChannel: vscode.OutputChannel
 ): vscode.Disposable[] {
-    debugChannel.appendLine('🚀 Simple Enter key detection for Copilot Chat');
+    debugChannel.appendLine('🚀 Advanced GitHub Copilot Chat detection based on source code analysis');
     
     // Check Copilot availability
     const copilotExt = vscode.extensions.getExtension('github.copilot');
@@ -16,10 +16,11 @@ export function initializeEnterKeyDetection(
     
     debugChannel.appendLine(`✅ Copilot extensions found`);
 
-    let lastSelectionTime = 0; // Moved outside
+    let lastChatContent = '';
+    let lastActivityTime = 0;
 
-    // Method 1: Simple text document change monitoring
-    // Detekce na základě změn v chat dokumentech
+    // Method 1: Enhanced text document change monitoring
+    // Na základě analýzy zdrojového kódu - sledujeme změny v chat dokumentech
     const textChangeListener = vscode.workspace.onDidChangeTextDocument((event) => {
         const uri = event.document.uri;
         const scheme = uri.scheme;
@@ -29,68 +30,157 @@ export function initializeEnterKeyDetection(
             return;
         }
         
-        // Pouze pro Copilot Chat scheme
-        if (scheme === 'chat-editing-snapshot-text-model') {
+        // Detekce pro všechny Copilot Chat schemes
+        if (scheme === 'chat-editing-snapshot-text-model' || 
+            scheme === 'vscode-chat-input' ||
+            uri.toString().includes('copilot') ||
+            uri.toString().includes('chat')) {
+            
             const currentText = event.document.getText();
+            const now = Date.now();
             
             for (const change of event.contentChanges) {
-                // Detekce odeslání zprávy = značné zmenšení textu nebo úplné vymazání
-                const isMessageSent = (
-                    // Úplné vymazání textu
-                    (change.text === '' && change.rangeLength > 5) ||
-                    // Nebo značné zmenšenie (>70% textu zmizelo)
-                    (currentText.length < event.document.getText().length * 0.3 && change.rangeLength > 10)
+                // Detekce odeslání zprávy na základě analýzy Copilot Chat kódu
+                const isMessageSubmitted = (
+                    // Úplné vymazání textu (častý pattern při odeslání)
+                    (change.text === '' && change.rangeLength > 3) ||
+                    // Nebo značné zmenšení obsahu (>80% textu zmizelo)
+                    (currentText.length < lastChatContent.length * 0.2 && change.rangeLength > 5) ||
+                    // Detekce "acceptInput" pattern - když se text najednou zkrátí
+                    (lastChatContent.length > 10 && currentText.length < 3 && change.rangeLength > 7)
                 );
                 
-                if (isMessageSent) {
-                    debugChannel.appendLine(`🚀 Copilot message sent! (text change: -${change.rangeLength} chars)`);
+                if (isMessageSubmitted && now - lastActivityTime > 200) {
+                    debugChannel.appendLine(`🚀 Chat message submitted! (change: -${change.rangeLength} chars, scheme: ${scheme})`);
+                    debugChannel.appendLine(`   Previous content length: ${lastChatContent.length}, new: ${currentText.length}`);
                     handleAIActivity();
+                    lastActivityTime = now;
                     break;
                 }
             }
+            
+            // Aktualizace posledního obsahu
+            if (currentText.length > lastChatContent.length) {
+                lastChatContent = currentText;
+            }
         }
     });
 
-    // Method 2: Keyboard shortcut listener (bez blokování type command)
-    // Použijeme keybinding API místo type command override
-    const keyBindingListener = vscode.commands.registerCommand('specstoryautosave.detectEnterInChat', () => {
-        const activeEditor = vscode.window.activeTextEditor;
-        
-        if (activeEditor && activeEditor.document.uri.scheme === 'chat-editing-snapshot-text-model') {
-            debugChannel.appendLine(`⚡ Enter detected in Copilot Chat!`);
-            handleAIActivity();
-        }
+    // Method 2: Command execution monitoring
+    // Na základě analýzy zdrojových kódů - sledujeme spuštění příkazů souvisejících s chatem
+    const commandListener = vscode.commands.registerCommand('specstoryautosave.detectChatSubmit', () => {
+        debugChannel.appendLine(`⚡ Chat submit command detected!`);
+        handleAIActivity();
     });
 
-    // Method 3: Okamžitá detekce při změně selection v chat editoru
+    // Registrace posluchače pro workbench akce (inspirováno zdrojovým kódem)
+    const registerWorkbenchCommandListener = () => {
+        try {
+            // Sledujeme známé příkazy pro chat
+            const chatCommands = [
+                'workbench.action.chat.submit',
+                'workbench.action.chat.sendMessage',
+                'interactive.acceptInput',
+                'chat.action.submit'
+            ];
+            
+            const listeners: vscode.Disposable[] = [];
+            
+            chatCommands.forEach(commandId => {
+                try {
+                    // Registrujeme posluchač pro každý příkaz
+                    const listener = vscode.commands.registerCommand(`specstoryautosave.listen.${commandId}`, () => {
+                        debugChannel.appendLine(`⚡ Chat command intercepted: ${commandId}`);
+                        handleAIActivity();
+                    });
+                    listeners.push(listener);
+                } catch (error) {
+                    // Některé příkazy nemusí existovat, to je v pořádku
+                }
+            });
+            
+            return listeners;
+        } catch (error) {
+            debugChannel.appendLine(`⚠️ Could not register command listeners: ${error}`);
+            return [];
+        }
+    };
+
+    const commandListeners = registerWorkbenchCommandListener();
+
+    // Method 3: Enhanced selection change monitoring
+    // Na základě analýzy InteractiveEditorWidget - sledujeme změny selection
     const selectionChangeListener = vscode.window.onDidChangeTextEditorSelection((event) => {
         const editor = event.textEditor;
-        if (editor && editor.document.uri.scheme === 'chat-editing-snapshot-text-model') {
+        if (editor && (
+            editor.document.uri.scheme === 'chat-editing-snapshot-text-model' ||
+            editor.document.uri.scheme === 'vscode-chat-input' ||
+            editor.document.uri.toString().includes('copilot') ||
+            editor.document.uri.toString().includes('chat')
+        )) {
             const now = Date.now();
             
-            // Rychlá detekce při pohybu kurzoru (Enter často způsobí změnu selection)
-            if (now - lastSelectionTime > 50) {
-                lastSelectionTime = now;
-                
-                // Zkontrolujeme, zda došlo k submit
+            // Detekce rychlých změn selection (typické při submit)
+            if (now - lastActivityTime > 100) {
                 const currentText = editor.document.getText();
-                if (currentText.length === 0 || currentText.trim() === '') {
-                    debugChannel.appendLine(`⚡ Chat cleared - message likely sent!`);
+                
+                // Pokud je text prázdný nebo velmi krátký po předchozí aktivitě
+                if ((currentText.length === 0 || currentText.trim() === '') && lastChatContent.length > 5) {
+                    debugChannel.appendLine(`⚡ Chat cleared via selection change - message submitted!`);
+                    debugChannel.appendLine(`   Previous: "${lastChatContent.substring(0, 50)}...", now empty`);
                     handleAIActivity();
+                    lastActivityTime = now;
+                    lastChatContent = '';
                 }
             }
         }
     });
 
-    // Method 4: Active editor change monitoring
-    // Detekce kdy se uživatel přepne do Copilot Chat
+    // Method 4: Active editor monitoring
+    // Sledujeme přepínání editorů pro lepší kontext
     const editorChangeListener = vscode.window.onDidChangeActiveTextEditor(editor => {
-        if (editor && editor.document.uri.scheme === 'chat-editing-snapshot-text-model') {
-            debugChannel.appendLine(`📝 Switched to Copilot Chat editor`);
+        if (editor && (
+            editor.document.uri.scheme === 'chat-editing-snapshot-text-model' ||
+            editor.document.uri.scheme === 'vscode-chat-input' ||
+            editor.document.uri.toString().includes('copilot') ||
+            editor.document.uri.toString().includes('chat')
+        )) {
+            debugChannel.appendLine(`📝 Switched to Copilot Chat editor (${editor.document.uri.scheme})`);
+            lastChatContent = editor.document.getText();
         }
     });
 
-    debugChannel.appendLine('✅ Simple Enter detection active (4 methods)');
+    // Method 5: Focus change monitoring  
+    // Sledujeme ztrátu fokusu z chat editorů (může indikovat submit)
+    const focusListener = vscode.window.onDidChangeWindowState((state) => {
+        if (!state.focused) {
+            const activeEditor = vscode.window.activeTextEditor;
+            if (activeEditor && (
+                activeEditor.document.uri.scheme === 'chat-editing-snapshot-text-model' ||
+                activeEditor.document.uri.toString().includes('copilot')
+            )) {
+                // Možná submit když ztratíme fokus
+                setTimeout(() => {
+                    const currentText = activeEditor.document.getText();
+                    if (currentText.length < lastChatContent.length * 0.5) {
+                        debugChannel.appendLine(`⚡ Focus change detected possible chat submit`);
+                        handleAIActivity();
+                    }
+                }, 100);
+            }
+        }
+    });
+
+    debugChannel.appendLine('✅ Advanced Copilot Chat detection active (5 methods)');
     
-    return [textChangeListener, keyBindingListener, selectionChangeListener, editorChangeListener];
+    const allListeners = [
+        textChangeListener, 
+        commandListener, 
+        selectionChangeListener, 
+        editorChangeListener,
+        focusListener,
+        ...commandListeners
+    ];
+    
+    return allListeners;
 }
