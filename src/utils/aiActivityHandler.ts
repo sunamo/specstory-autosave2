@@ -23,13 +23,8 @@ export function handleAIActivity(
     updateStatusBarCallback: () => void,
     lastDetectedTime?: { value: number }
 ) {
+    // NO COOLDOWN - detect every AI prompt immediately!
     const now = Date.now();
-    
-    // Much shorter cooldown only for rapid duplicate triggers (100ms instead of 500ms)
-    if (lastDetectedTime && (now - lastDetectedTime.value < 100)) {
-        debugChannel.appendLine(`[DEBUG] AI activity ignored - too rapid (${now - lastDetectedTime.value}ms since last detection)`);
-        return;
-    }
     
     if (lastDetectedTime) {
         lastDetectedTime.value = now;
@@ -40,16 +35,17 @@ export function handleAIActivity(
     const enableNotifications = config.get<boolean>('enableAICheckNotifications', true);
     const frequency = config.get<number>('aiNotificationFrequency', 1);
     
-    debugChannel.appendLine(`[DEBUG] AI activity detected! Counter: ${aiPromptCounter.value}`);
+    debugChannel.appendLine(`[DEBUG] 🚀 AI PROMPT DETECTED! Counter: ${aiPromptCounter.value}`);
     debugChannel.appendLine(`[DEBUG] Notifications enabled: ${enableNotifications}, Frequency: ${frequency}`);
     
-    if (enableNotifications && (aiPromptCounter.value % frequency === 0)) {
-        debugChannel.appendLine(`[DEBUG] Will show notification (counter ${aiPromptCounter.value} matches frequency ${frequency})`);
+    // ALWAYS show notification when enabled - no frequency check for maximum reliability
+    if (enableNotifications) {
+        debugChannel.appendLine(`[DEBUG] ✅ SHOWING NOTIFICATION IMMEDIATELY (counter ${aiPromptCounter.value})`);
         showNotificationCallback().catch((error) => {
-            debugChannel.appendLine(`[DEBUG] Error showing notification: ${error}`);
+            debugChannel.appendLine(`[DEBUG] ❌ Error showing notification: ${error}`);
         });
     } else {
-        debugChannel.appendLine(`[DEBUG] Notification skipped - notifications: ${enableNotifications}, counter: ${aiPromptCounter.value}, frequency: ${frequency}`);
+        debugChannel.appendLine(`[DEBUG] ❌ Notifications disabled in settings`);
     }
     
     updateStatusBarCallback();
