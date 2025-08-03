@@ -33,8 +33,22 @@ class AIActivityProvider implements vscode.WebviewViewProvider {
     }
 
     public addNotification(message: string) {
-        const timestamp = new Date().toLocaleTimeString();
-        this._notifications.unshift(`[${timestamp}] ${message}`);
+        const timestamp = new Date().toLocaleTimeString('cs-CZ', { 
+            hour: '2-digit', 
+            minute: '2-digit', 
+            second: '2-digit' 
+        });
+        
+        // Split multi-line message into individual prompts
+        const lines = message.split('\n').filter(line => line.trim().length > 0);
+        
+        // Add each line as a separate notification (in reverse order to maintain chronology)
+        for (let i = lines.length - 1; i >= 0; i--) {
+            const line = lines[i].trim();
+            if (line) {
+                this._notifications.unshift(`[${timestamp}] ${line}`);
+            }
+        }
         
         // Get max prompts from configuration
         const config = vscode.workspace.getConfiguration('specstoryautosave');
@@ -46,6 +60,15 @@ class AIActivityProvider implements vscode.WebviewViewProvider {
         }
         
         this._updateView();
+    }
+
+    public clearNotifications() {
+        this._notifications = [];
+        this._updateView();
+    }
+
+    public getHtmlForWebview(webview: vscode.Webview): string {
+        return this._getHtmlForWebview(webview);
     }
 
     private _updateView() {
@@ -60,18 +83,13 @@ class AIActivityProvider implements vscode.WebviewViewProvider {
                 const [timestamp, ...messageParts] = notification.split('] ');
                 const cleanTimestamp = timestamp.replace('[', '');
                 const message = messageParts.join('] ');
-                const lines = message.split('\n');
-                const firstLine = lines[0] || message;
-                const remainingLines = lines.slice(1);
                 
                 return `<div class="notification">
                     <div class="notification-header">
-                        <span class="notification-number">#${this._notifications.length - index}</span>
                         <span class="notification-time">${cleanTimestamp}</span>
                     </div>
                     <div class="notification-content">
-                        <div class="notification-title">${firstLine}</div>
-                        ${remainingLines.length > 0 ? `<div class="notification-details">${remainingLines.join('<br>')}</div>` : ''}
+                        <div class="notification-title">${message}</div>
                     </div>
                 </div>`;
             }).join('')
@@ -126,21 +144,15 @@ class AIActivityProvider implements vscode.WebviewViewProvider {
                     background-color: var(--vscode-list-activeSelectionBackground);
                 }
                 .notification-header {
-                    display: flex;
-                    justify-content: space-between;
-                    align-items: center;
                     padding: 4px 8px;
                     background-color: var(--vscode-editor-selectionBackground);
                     border-bottom: 1px solid var(--vscode-widget-border);
+                    text-align: center;
                 }
-                .notification-number {
+                .notification-time {
                     font-size: 10px;
                     font-weight: bold;
                     color: var(--vscode-charts-blue);
-                }
-                .notification-time {
-                    font-size: 9px;
-                    color: var(--vscode-descriptionForeground);
                 }
                 .notification-content {
                     padding: 6px 8px;
@@ -1384,7 +1396,7 @@ async function showAINotificationImmediately() {
         vscode.commands.executeCommand('workbench.view.extension.specstoryAI');
         
     } else {
-        // Use webview panel
+        // Use webview panel - but share the same display logic as activity bar
         if (!aiNotificationPanel) {
             // Create new panel only if none exists
             debugChannel.appendLine('[DEBUG] Creating new webview panel for AI notification...');
@@ -1427,6 +1439,15 @@ async function showAINotificationImmediately() {
                                 aiNotificationPanel.dispose();
                             }
                             return;
+                        case 'clearAll':
+                            debugChannel.appendLine('[DEBUG] User cleared all notifications in panel');
+                            // Clear the shared notifications array
+                            aiActivityProvider.clearNotifications();
+                            // Update both panel and activity bar
+                            if (aiNotificationPanel) {
+                                aiNotificationPanel.webview.html = aiActivityProvider.getHtmlForWebview(aiNotificationPanel.webview);
+                            }
+                            return;
                     }
                 },
                 undefined,
@@ -1437,8 +1458,11 @@ async function showAINotificationImmediately() {
             debugChannel.appendLine('[DEBUG] Reusing existing webview panel...');
         }
         
-        // Update panel content (for both new and existing panels)
-        aiNotificationPanel.webview.html = getWebviewContent(message);
+        // Add notification to shared provider (same as activity bar)
+        aiActivityProvider.addNotification(message);
+        
+        // Update panel content using the same HTML as activity bar
+        aiNotificationPanel.webview.html = aiActivityProvider.getHtmlForWebview(aiNotificationPanel.webview);
         
         // Bring panel to focus
         aiNotificationPanel.reveal(vscode.ViewColumn.Beside);
@@ -1479,133 +1503,4 @@ export function deactivate() {
     if (debugChannel) {
         debugChannel.dispose();
     }
-}
-
-function getWebviewContent(message: string): string {
-    // Parse the message to extract prompts
-    const parts = message.split('Prompts: ');
-    const title = parts[0] || 'AI Activity Detected!';
-    const promptsText = parts[1] || '';
-    const prompts = promptsText.split(' | ').filter(p => p.length > 0);
-    
-    return `<!DOCTYPE html>
-<html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>AI Activity Detected</title>
-    <style>
-        body {
-            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', sans-serif;
-            padding: 20px;
-            margin: 0;
-            background: var(--vscode-editor-background);
-            color: var(--vscode-editor-foreground);
-        }
-        .container {
-            max-width: 600px;
-            margin: 0 auto;
-        }
-        h1 {
-            color: var(--vscode-textLink-foreground);
-            margin-bottom: 20px;
-            font-size: 18px;
-        }
-        .prompts-section {
-            background: var(--vscode-textBlockQuote-background);
-            border: 1px solid var(--vscode-textBlockQuote-border);
-            border-radius: 6px;
-            padding: 15px;
-            margin: 15px 0;
-        }
-        .prompts-title {
-            font-weight: bold;
-            margin-bottom: 10px;
-            color: var(--vscode-textPreformat-foreground);
-        }
-        .prompt-item {
-            background: var(--vscode-input-background);
-            border: 1px solid var(--vscode-input-border);
-            border-radius: 4px;
-            padding: 8px 12px;
-            margin: 8px 0;
-            font-family: 'Courier New', Consolas, monospace;
-            font-size: 13px;
-            color: var(--vscode-input-foreground);
-        }
-        .buttons {
-            display: flex;
-            gap: 10px;
-            margin-top: 20px;
-            justify-content: center;
-        }
-        button {
-            background: var(--vscode-button-background);
-            color: var(--vscode-button-foreground);
-            border: none;
-            border-radius: 4px;
-            padding: 8px 16px;
-            cursor: pointer;
-            font-size: 13px;
-            transition: background 0.2s;
-        }
-        button:hover {
-            background: var(--vscode-button-hoverBackground);
-        }
-        .primary {
-            background: var(--vscode-button-background);
-        }
-        .secondary {
-            background: var(--vscode-button-secondaryBackground);
-            color: var(--vscode-button-secondaryForeground);
-        }
-        .secondary:hover {
-            background: var(--vscode-button-secondaryHoverBackground);
-        }
-        .dismiss {
-            background: transparent;
-            color: var(--vscode-button-secondaryForeground);
-            border: 1px solid var(--vscode-button-border);
-        }
-    </style>
-</head>
-<body>
-    <div class="container">
-        <h1>🤖 ${title.replace('!', '')}</h1>
-        
-        <div class="prompts-section">
-            <div class="prompts-title">📝 Recent AI Prompts:</div>
-            ${prompts.map(prompt => `<div class="prompt-item">• ${prompt.trim()}</div>`).join('')}
-        </div>
-        
-        <div class="buttons">
-            <button class="primary" onclick="checkStatus()">🔍 Will Check Status</button>
-            <button class="secondary" onclick="everythingOK()">✅ Everything OK</button>
-            <button class="dismiss" onclick="dismiss()">❌ Dismiss</button>
-        </div>
-    </div>
-
-    <script>
-        const vscode = acquireVsCodeApi();
-        
-        function checkStatus() {
-            vscode.postMessage({
-                command: 'checkStatus'
-            });
-        }
-        
-        function everythingOK() {
-            vscode.postMessage({
-                command: 'everythingOK'
-            });
-        }
-        
-        function dismiss() {
-            vscode.postMessage({
-                command: 'dismiss'
-            });
-        }
-    </script>
-</body>
-</html>`;
 }

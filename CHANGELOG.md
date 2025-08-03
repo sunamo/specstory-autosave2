@@ -3,6 +3,21 @@
 ## [1.1.25] - 2025-08-03
 
 ### Added
+## [1.1.33] - 2025-01-08
+### Changed
+- Removed prompt numbering (#1, #2, etc.) from Activity Bar view
+- Shows only timestamps with seconds (HH:MM:SS format) for each prompt
+- Improved timestamp formatting with Czech locale and seconds precision
+- Centered timestamp display in notification headers
+- Cleaner, more minimal notification layout
+
+## [1.1.32] - 2025-01-08
+### Fixed
+- Activity Bar now shows individual prompts as separate entries (#1, #2, #3, etc.)
+- Each prompt line becomes a separate numbered notification instead of grouping multiple prompts in one block
+- Improved chronological display with proper individual prompt numbering
+- Simplified notification content display for better readability
+
 ## [1.1.31] - 2025-01-08
 ### Changed
 - Activity Bar title corrected to "SpecStory AutoSave" (matching extension name)
