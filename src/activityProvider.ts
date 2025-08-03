@@ -29,41 +29,50 @@ export class AIActivityProvider implements vscode.WebviewViewProvider {
     }
 
     private async initializeWithRetry() {
+        this.writeDebugLog('=== INITIALIZING WITH RETRY ===');
+        
         // Try multiple times with delays
         for (let attempt = 1; attempt <= 3; attempt++) {
-            logDebug(`Loading attempt ${attempt}/3`);
+            this.writeDebugLog(`Loading attempt ${attempt}/3`);
             
             try {
                 await this.loadPromptsFromSpecStory();
                 if (this._prompts.length > 0) {
+                    this.writeDebugLog(`Successfully loaded ${this._prompts.length} prompts on attempt ${attempt}`);
                     logInfo(`Successfully loaded ${this._prompts.length} prompts on attempt ${attempt}`);
-                    break;
+                    return; // Success - exit retry loop
                 }
             } catch (error) {
+                this.writeDebugLog(`Attempt ${attempt} failed: ${error}`);
                 logError(`Attempt ${attempt} failed: ${error}`);
             }
             
             if (attempt < 3) {
                 // Wait before retry
+                this.writeDebugLog(`Waiting ${2000 * attempt}ms before retry...`);
                 await new Promise(resolve => setTimeout(resolve, 2000 * attempt));
             }
         }
         
-        // If still no prompts, add test prompts
+        // If still no prompts, add test prompts as immediate fallback
         if (this._prompts.length === 0) {
+            this.writeDebugLog('Adding test prompts as fallback');
             logDebug('Adding test prompts as fallback');
             this._prompts = [
                 {
-                    timestamp: new Date().toLocaleTimeString('cs-CZ', { hour: '2-digit', minute: '2-digit', second: '2-digit' }),
+                    timestamp: '#1',
                     shortPrompt: 'Test: robustnější řešení načítání - čekám na SpecStory data',
                     fullContent: 'Fallback test prompt while waiting for SpecStory integration'
                 },
                 {
-                    timestamp: new Date(Date.now() - 120000).toLocaleTimeString('cs-CZ', { hour: '2-digit', minute: '2-digit', second: '2-digit' }),
+                    timestamp: '#2',
                     shortPrompt: 'Test: zkontroluj debug logy pro více informací',
                     fullContent: 'Check debug output for detailed loading information'
                 }
             ];
+            
+            // Force immediate display of fallback prompts
+            this._updateView();
         }
     }
 
@@ -108,12 +117,14 @@ export class AIActivityProvider implements vscode.WebviewViewProvider {
 
     private async loadPromptsFromSpecStory() {
         try {
+            this.writeDebugLog('=== STARTING ROBUST PROMPT LOADING ===');
             logDebug('=== STARTING ROBUST PROMPT LOADING ===');
             
             // Try multiple methods to find SpecStory path
             let specstoryPath = await findSpecStoryHistoryPath();
             
             if (!specstoryPath) {
+                this.writeDebugLog('Primary path detection failed, trying alternative methods...');
                 logDebug('Primary path detection failed, trying alternative methods...');
                 
                 // Try hardcoded common paths
@@ -129,47 +140,56 @@ export class AIActivityProvider implements vscode.WebviewViewProvider {
                         const stat = await vscode.workspace.fs.stat(testUri);
                         if (stat.type === vscode.FileType.Directory) {
                             specstoryPath = path;
+                            this.writeDebugLog(`Found SpecStory using hardcoded path: ${path}`);
                             logDebug(`Found SpecStory using hardcoded path: ${path}`);
                             break;
                         }
                     } catch {
+                        this.writeDebugLog(`Hardcoded path not found: ${path}`);
                         logDebug(`Hardcoded path not found: ${path}`);
                     }
                 }
             }
             
             if (!specstoryPath) {
+                this.writeDebugLog('No SpecStory path found with any method');
                 logError('No SpecStory path found with any method');
                 return;
             }
 
+            this.writeDebugLog(`Using SpecStory path: ${specstoryPath}`);
             logInfo(`Using SpecStory path: ${specstoryPath}`);
 
             // Try to read conversations
             const conversations = await readRecentSpecStoryConversations(specstoryPath, 1);
             
             if (!conversations || conversations.length === 0) {
+                this.writeDebugLog('No conversations loaded from SpecStory');
                 logError('No conversations loaded from SpecStory');
                 
                 // Try manual file listing
                 try {
                     const historyUri = vscode.Uri.file(specstoryPath);
                     const files = await vscode.workspace.fs.readDirectory(historyUri);
+                    this.writeDebugLog(`Manual directory listing found ${files.length} files`);
                     logDebug(`Manual directory listing found ${files.length} files`);
                     
                     const mdFiles = files.filter(([name, type]) => name.endsWith('.md') && type === vscode.FileType.File);
+                    this.writeDebugLog(`Found ${mdFiles.length} .md files`);
                     logDebug(`Found ${mdFiles.length} .md files`);
                     
                     if (mdFiles.length > 0) {
                         // Try to read the latest file manually
                         mdFiles.sort((a, b) => b[0].localeCompare(a[0]));
                         const latestFile = mdFiles[0][0];
+                        this.writeDebugLog(`Attempting to read latest file manually: ${latestFile}`);
                         logDebug(`Attempting to read latest file manually: ${latestFile}`);
                         
                         const fileUri = vscode.Uri.joinPath(historyUri, latestFile);
                         const fileContent = await vscode.workspace.fs.readFile(fileUri);
                         const content = Buffer.from(fileContent).toString('utf8');
                         
+                        this.writeDebugLog(`Manual file read successful, content length: ${content.length}`);
                         logDebug(`Manual file read successful, content length: ${content.length}`);
                         
                         // Process content manually
@@ -177,74 +197,120 @@ export class AIActivityProvider implements vscode.WebviewViewProvider {
                         return;
                     }
                 } catch (manualError) {
+                    this.writeDebugLog(`Manual file reading failed: ${manualError}`);
                     logError(`Manual file reading failed: ${manualError}`);
                 }
                 return;
             }
 
+            this.writeDebugLog(`Loaded ${conversations.length} conversations successfully`);
             logDebug(`Loaded ${conversations.length} conversations successfully`);
             this.processSpecStoryContent(conversations[0].content, conversations[0].topic);
 
         } catch (error) {
+            this.writeDebugLog(`Critical error in loadPromptsFromSpecStory: ${error}`);
             logError(`Critical error in loadPromptsFromSpecStory: ${error}`);
         }
     }
 
     private processSpecStoryContent(content: string, topic: string) {
-        // Extract timestamp from SpecStory filename (e.g., "2025-08-03_07-59Z-user-greeting...")
-        const baseTimestamp = this.extractTimestampFromTopic(topic);
+        // Create debug log file
+        this.writeDebugLog(`=== PROCESSING SPECSTORY CONTENT ===`);
+        this.writeDebugLog(`Topic: ${topic}`);
+        this.writeDebugLog(`Content length: ${content.length}`);
         
         const lines = content.split('\n').filter(line => line.trim().length > 0);
+        this.writeDebugLog(`Total non-empty lines: ${lines.length}`);
+        
+        // Log first 20 lines for analysis
+        this.writeDebugLog(`=== FIRST 20 LINES ===`);
+        lines.slice(0, 20).forEach((line, index) => {
+            this.writeDebugLog(`Line ${index + 1}: "${line}"`);
+        });
+        
         const userPrompts = [];
         
         for (let i = 0; i < lines.length; i++) {
             const line = lines[i].trim();
             const lowerLine = line.toLowerCase();
             
-            // SIMPLIFIED USER PROMPT DETECTION - any line that looks like a user request
-            const isUserPrompt = 
-                // Explicit user markers
+            // COMPLETELY DIFFERENT APPROACH: Look for HUMAN input patterns, not AI responses
+            const isRealUserRequest = 
+                // Direct user markers
                 lowerLine.startsWith('user:') || 
                 lowerLine.startsWith('**user**') ||
                 line.startsWith('User:') ||
-                // OR any line with Czech/English user patterns (less restrictive)
-                (line.length > 10 && 
-                 !lowerLine.includes('assistant') && 
+                // OR lines that contain human speech patterns and are NOT AI responses
+                (line.length > 8 && 
+                 // EXCLUDE AI response patterns
                  !lowerLine.includes('github copilot') &&
                  !lowerLine.includes('copilot') &&
+                 !lowerLine.includes('assistant') &&
+                 !lowerLine.includes('here is') &&
+                 !lowerLine.includes('here\'s') &&
+                 !lowerLine.includes('i can help') &&
+                 !lowerLine.includes('i\'ll help') &&
+                 !lowerLine.includes('let me') &&
+                 !lowerLine.includes('i\'ll create') &&
+                 !lowerLine.includes('i\'ll fix') &&
+                 !lowerLine.includes('i\'ll update') &&
+                 !lowerLine.includes('perfect!') &&
+                 !lowerLine.includes('excellent!') &&
+                 !lowerLine.includes('great!') &&
                  !lowerLine.startsWith('#') &&
                  !lowerLine.startsWith('<!--') &&
                  !lowerLine.startsWith('---') &&
                  !lowerLine.startsWith('```') &&
                  !lowerLine.includes('generated by') &&
+                 // INCLUDE human request patterns
                  (
-                  // Czech patterns
+                  // Czech human requests
                   lowerLine.includes('můžeš') || 
                   lowerLine.includes('prosím') ||
                   lowerLine.includes('potřebuji') ||
                   lowerLine.includes('chci') ||
-                  lowerLine.includes('dej') ||
+                  lowerLine.includes('chtěl') ||
+                  lowerLine.includes('dej mi') ||
                   lowerLine.includes('udělej') ||
                   lowerLine.includes('vytvoř') ||
                   lowerLine.includes('oprav') ||
                   lowerLine.includes('změň') ||
                   lowerLine.includes('pomož') ||
-                  lowerLine.includes('?') ||
-                  // English patterns  
+                  lowerLine.includes('vysvětli') ||
+                  lowerLine.includes('ukáž') ||
+                  lowerLine.includes('najdi') ||
+                  lowerLine.includes('zkontroluj') ||
+                  // Czech questions
+                  (lowerLine.includes('?') && (
+                    lowerLine.includes('jak') ||
+                    lowerLine.includes('co') ||
+                    lowerLine.includes('kde') ||
+                    lowerLine.includes('kdy') ||
+                    lowerLine.includes('proč') ||
+                    lowerLine.includes('který') ||
+                    lowerLine.includes('jaký')
+                  )) ||
+                  // English human requests  
                   lowerLine.includes('please') ||
-                  lowerLine.includes('could') ||
+                  lowerLine.includes('could you') ||
                   lowerLine.includes('can you') ||
+                  lowerLine.includes('would you') ||
                   lowerLine.includes('i need') ||
                   lowerLine.includes('i want') ||
+                  lowerLine.includes('help me') ||
                   lowerLine.startsWith('create') ||
                   lowerLine.startsWith('make') ||
                   lowerLine.startsWith('fix') ||
                   lowerLine.startsWith('change') ||
-                  lowerLine.startsWith('update')
+                  lowerLine.startsWith('update') ||
+                  lowerLine.startsWith('show') ||
+                  lowerLine.startsWith('find')
                  )
                 );
             
-            if (isUserPrompt) {
+            if (isRealUserRequest) {
+                this.writeDebugLog(`*** FOUND USER REQUEST at line ${i + 1}: "${line}"`);
+                
                 // Clean up prompt text
                 let promptText = line
                     .replace(/^.*?user[:\s]*\**/i, '')
@@ -258,24 +324,22 @@ export class AIActivityProvider implements vscode.WebviewViewProvider {
                 
                 if (promptText.length > 5) {
                     userPrompts.push(promptText);
+                    this.writeDebugLog(`*** ADDED USER REQUEST #${userPrompts.length}: "${promptText.substring(0, 100)}"`);
                 }
             }
         }
 
-        // Transform user prompts to display format with FIXED timestamp from file
+        this.writeDebugLog(`*** FINAL: Found ${userPrompts.length} user requests`);
+
+        // Transform user prompts to display format with SIMPLE NUMBERING
         this._prompts = userPrompts.map((prompt, index) => {
             const shortPrompt = prompt.length > 120 ? prompt.substring(0, 120) + '...' : prompt;
             
-            // Use FIXED timestamp from SpecStory file + offset for ordering
-            const promptTimestamp = new Date(baseTimestamp.getTime() + (index * 60000));
-            const timestamp = promptTimestamp.toLocaleTimeString('cs-CZ', { 
-                hour: '2-digit', 
-                minute: '2-digit', 
-                second: '2-digit' 
-            });
+            // Use simple numbering instead of timestamps since SpecStory doesn't have them
+            const displayNumber = `#${userPrompts.length - index}`;
 
             return {
-                timestamp: timestamp,
+                timestamp: displayNumber,
                 shortPrompt: shortPrompt,
                 fullContent: prompt
             };
@@ -289,7 +353,27 @@ export class AIActivityProvider implements vscode.WebviewViewProvider {
             this._prompts = this._prompts.slice(0, maxPrompts);
         }
 
+        this.writeDebugLog(`Successfully processed ${this._prompts.length} prompts for Activity Bar`);
+        
+        // Force immediate update
+        this._updateView();
+        
         logInfo(`Successfully processed ${this._prompts.length} prompts for Activity Bar`);
+    }
+
+    private writeDebugLog(message: string) {
+        const timestamp = new Date().toISOString();
+        const logEntry = `${timestamp}: ${message}\n`;
+        
+        try {
+            const fs = require('fs');
+            const path = require('path');
+            const logFile = path.join(process.env.TEMP || '/tmp', 'specstory-debug.log');
+            fs.appendFileSync(logFile, logEntry);
+        } catch (error) {
+            // Fallback to console if file write fails
+            console.log(`DEBUG: ${message}`);
+        }
     }
 
     private extractTimestampFromTopic(topic: string): Date {
