@@ -4,6 +4,37 @@ All notable changes to the "specstory-autosave" extension will be documented in 
 
 Check [Keep a Changelog](http://keepachangelog.com/) for recommendations on how to structure this file.
 
+# Changelog
+
+## [1.1.4] - 2025-08-03
+### Added
+- **3 nové detekční metody**: Terminal Detection, File System Detection, Keyboard Activity Detection
+- **Celkem 9 detekčních metod** - všechny podmíněně dostupné přes nastavení
+- Terminal Detection: sleduje otevírání/zavírání terminálů
+- File System Detection: detekuje rychlé změny souborů (3+ změny za sekundu)
+- Keyboard Activity Detection: detekuje rychlé psaní (100+ znaků za 500ms)
+
+### Fixed
+- Opravena funkcionalita notifikací - odstraněna blokující podmínka z handleAIActivity()
+- Notifikace se opět zobrazují správně po detekci AI aktivity
+
+### Technical
+- Aggressive detection level nyní podporuje všech 9 metod
+- Ve výchozím stavu jsou aktivní jen CommandHook a Webview Detection (doporučené)
+- Ostatní metody lze povolit individuálně v nastavení
+
+## [1.1.3] - 2025-08-03
+
+### Added
+- Strict version management rules: only patch increments by default
+- MINOR version increments only for marketplace releases
+- Clear versioning guidelines in AI instructions
+
+### Changed
+- Updated AI instructions with critical version management rules
+- Patch-only incremental versioning (1.1.2 → 1.1.3 → 1.1.4...)
+- MINOR version (1.1.x → 1.2.0) only on "marketplace compilation" command
+
 ## [1.1.2] - 2025-08-03
 
 ### Added

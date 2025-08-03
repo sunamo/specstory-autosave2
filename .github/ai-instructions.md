@@ -1,4 +1,20 @@
-# AI Assistant Instructions
+# AI Assistant In### 🚀 RELEASE na konci každého promptu
+- **Na konci KAŽDÉHO promptu spusť `.\install.ps1`**
+- Tento skript provede: build → commit → push → package → install
+- Automaticky vytvoří novou verzi a nainstaluje ji
+- Uživatel tak má vždy nejnovější verzi rozšíření
+
+### 📊 VERSION MANAGEMENT - KRITICKÉ PRAVIDLO!
+- **VŽDY inkrementuj pouze PATCH verzi** (např. 1.1.2 → 1.1.3)
+- **NIKDY neinkrementuj MINOR** (1.1.x → 1.2.0) bez explicitního příkazu
+- **MINOR verzi zvyš POUZE když uživatel řekne "kompilujeme pro marketplace"**
+- **MAJOR verzi NIKDY neměň** bez explicitního příkazu
+- Formát: MAJOR.MINOR.PATCH (např. 1.1.15, 1.1.16, 1.1.17...)
+
+### 📝 Git commit workflow
+- Pořadí: 1) Změna kódu → 2) Inkrementuj PATCH → 3) `.\install.ps1` (automaticky: commit → push → package)
+- Format: `git commit -m "v1.1.3"` (vždy jen patch++)
+- Vše se provede automaticky přes install.ps1
 
 ## ⚠️ KRITICKÁ PRAVIDLA - PŘÍSNĚ DODRŽUJ!
 
