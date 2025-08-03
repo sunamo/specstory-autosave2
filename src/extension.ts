@@ -515,6 +515,40 @@ function registerCommands(context: vscode.ExtensionContext) {
         vscode.window.showInformationMessage('Enter detection test logged to output panel');
     });
 
+    // Test command for file system detection
+    const testFileSystemDetection = vscode.commands.registerCommand('specstoryautosave.testFileSystemDetection', () => {
+        debugChannel.appendLine('🔍 === FILE SYSTEM DETECTION TEST ===');
+        const config = vscode.workspace.getConfiguration('specstoryautosave');
+        const detectionLevel = config.get<string>('detectionLevel', 'basic');
+        const enableFileSystem = config.get<boolean>('enableFileSystemDetection', false);
+        
+        debugChannel.appendLine(`Detection level: ${detectionLevel}`);
+        debugChannel.appendLine(`File system detection enabled: ${enableFileSystem}`);
+        
+        // Test SpecStory path detection
+        findSpecStoryHistoryPath().then(path => {
+            if (path) {
+                debugChannel.appendLine(`SpecStory history path: ${path}`);
+            } else {
+                debugChannel.appendLine('SpecStory history path not found');
+            }
+        });
+        
+        vscode.window.showInformationMessage('File system detection test logged to output panel');
+    });
+
+    // Command triggered by Enter key in Copilot Chat
+    const detectEnterInChat = vscode.commands.registerCommand('specstoryautosave.detectEnterInChat', () => {
+        const activeEditor = vscode.window.activeTextEditor;
+        if (activeEditor && activeEditor.document.uri.scheme === 'chat-editing-snapshot-text-model') {
+            debugChannel.appendLine('⚡ ENTER KEY BINDING TRIGGERED in Copilot Chat!');
+            handleAIActivity(aiPromptCounter, debugChannel, async () => {
+                const message = await generateSmartNotificationMessage(debugChannel);
+                await showAINotificationImmediately(message, aiActivityProvider, aiNotificationPanel, debugChannel, countdownTimer);
+            }, () => updateStatusBar(statusBarItem, aiPromptCounter), lastDetectedTime);
+        }
+    });
+
     // Debug command for testing advanced detection
     const debugAdvancedDetection = vscode.commands.registerCommand('specstoryautosave.debugAdvancedDetection', () => {
         debugChannel.appendLine('🔍 === ADVANCED DETECTION DEBUG ===');
@@ -542,6 +576,8 @@ function registerCommands(context: vscode.ExtensionContext) {
     context.subscriptions.push(testHistoryDetection);
     context.subscriptions.push(exportNow);
     context.subscriptions.push(testEnterDetection);
+    context.subscriptions.push(testFileSystemDetection);
+    context.subscriptions.push(detectEnterInChat);
     context.subscriptions.push(debugAdvancedDetection);
     context.subscriptions.push(outputChannel);
     context.subscriptions.push(debugChannel);

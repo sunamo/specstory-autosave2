@@ -119,13 +119,38 @@ export function initializeAggressiveDetection(
         debugChannel.appendLine('[DEBUG] 📟 Terminal monitoring enabled');
     }
     
-    // File system activity detection
+    // File system activity detection - optimized for SpecStory
     if (shouldUseFileSystem) {
-        const fileWatcher = vscode.workspace.createFileSystemWatcher('**/*');
+        // Primary watcher: .specstory/history files (most important)
+        const specstoryWatcher = vscode.workspace.createFileSystemWatcher('**/.specstory/history/*.md');
+        let lastSpecStoryChange = 0;
+        
+        const onSpecStoryFileChange = (uri: vscode.Uri) => {
+            const now = Date.now();
+            if (now - lastSpecStoryChange > 500) { // Prevent duplicate detections
+                lastSpecStoryChange = now;
+                lastDetectedTime.value = now;
+                debugChannel.appendLine(`[DEBUG] 🎯 SPECSTORY FILE DETECTION! ${uri.fsPath}`);
+                logAIActivity(`SpecStory file changed: ${uri.fsPath}`);
+                handleAIActivity();
+            }
+        };
+        
+        specstoryWatcher.onDidCreate(onSpecStoryFileChange);
+        specstoryWatcher.onDidChange(onSpecStoryFileChange);
+        disposables.push(specstoryWatcher);
+        
+        // Secondary watcher: General file system for AI-generated files
+        const generalWatcher = vscode.workspace.createFileSystemWatcher('**/*');
         let fileChangeCount = 0;
         let fileChangeTimer: NodeJS.Timeout | undefined;
         
-        const onFileChange = () => {
+        const onGeneralFileChange = (uri: vscode.Uri) => {
+            // Skip SpecStory files (handled above) and our own output
+            if (uri.fsPath.includes('.specstory') || uri.fsPath.includes('SpecStoryAutoSave')) {
+                return;
+            }
+            
             fileChangeCount++;
             
             if (fileChangeTimer) {
@@ -137,7 +162,7 @@ export function initializeAggressiveDetection(
                     const now = Date.now();
                     if (now - lastDetectedTime.value > 2000) {
                         lastDetectedTime.value = now;
-                        debugChannel.appendLine(`[DEBUG] 🚀 FILE SYSTEM DETECTION! (${fileChangeCount} changes)`);
+                        debugChannel.appendLine(`[DEBUG] 🚀 GENERAL FILE SYSTEM DETECTION! (${fileChangeCount} changes)`);
                         handleAIActivity();
                     }
                 }
@@ -145,14 +170,14 @@ export function initializeAggressiveDetection(
             }, 1000);
         };
         
-        fileWatcher.onDidCreate(onFileChange);
-        fileWatcher.onDidChange(onFileChange);
-        fileWatcher.onDidDelete(onFileChange);
+        generalWatcher.onDidCreate(onGeneralFileChange);
+        generalWatcher.onDidChange(onGeneralFileChange);
+        generalWatcher.onDidDelete(onGeneralFileChange);
         
-        disposables.push(fileWatcher);
+        disposables.push(generalWatcher);
         disposables.push({ dispose: () => { if (fileChangeTimer) clearTimeout(fileChangeTimer); } });
         
-        debugChannel.appendLine('[DEBUG] 📁 File system monitoring enabled');
+        debugChannel.appendLine('[DEBUG] 📁 File system monitoring enabled (SpecStory + General)');
     }
     
     debugChannel.appendLine('[DEBUG] ✅ Aggressive detection with all methods installed');

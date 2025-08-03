@@ -16,8 +16,6 @@ export function initializeEnterKeyDetection(
     
     debugChannel.appendLine(`✅ Copilot extensions found`);
 
-    let lastSelectionTime = 0; // Moved outside
-
     // Method 1: Simple text document change monitoring
     // Detekce na základě změn v chat dokumentech
     const textChangeListener = vscode.workspace.onDidChangeTextDocument((event) => {
@@ -51,46 +49,28 @@ export function initializeEnterKeyDetection(
         }
     });
 
-    // Method 2: Keyboard shortcut listener (bez blokování type command)
-    // Použijeme keybinding API místo type command override
-    const keyBindingListener = vscode.commands.registerCommand('specstoryautosave.detectEnterInChat', () => {
+    // Method 2: Key binding monitoring
+    // Přímé zachytávání Enter klávesy pouze v Copilot Chat kontextu
+    const keyListener = vscode.commands.registerCommand('type', (args) => {
         const activeEditor = vscode.window.activeTextEditor;
         
-        if (activeEditor && activeEditor.document.uri.scheme === 'chat-editing-snapshot-text-model') {
-            debugChannel.appendLine(`⚡ Enter detected in Copilot Chat!`);
-            handleAIActivity();
-        }
-    });
-
-    // Method 3: Okamžitá detekce při změně selection v chat editoru
-    const selectionChangeListener = vscode.window.onDidChangeTextEditorSelection((event) => {
-        const editor = event.textEditor;
-        if (editor && editor.document.uri.scheme === 'chat-editing-snapshot-text-model') {
-            const now = Date.now();
+        if (activeEditor && 
+            activeEditor.document.uri.scheme === 'chat-editing-snapshot-text-model' &&
+            args && args.text === '\n') {
             
-            // Rychlá detekce při pohybu kurzoru (Enter často způsobí změnu selection)
-            if (now - lastSelectionTime > 50) {
-                lastSelectionTime = now;
-                
-                // Zkontrolujeme, zda došlo k submit
-                const currentText = editor.document.getText();
-                if (currentText.length === 0 || currentText.trim() === '') {
-                    debugChannel.appendLine(`⚡ Chat cleared - message likely sent!`);
-                    handleAIActivity();
-                }
-            }
+            debugChannel.appendLine(`⚡ Enter pressed in Copilot Chat!`);
+            
+            // Malé zpoždění aby se zpráva stihla odeslat
+            setTimeout(() => {
+                handleAIActivity();
+            }, 100);
         }
+        
+        // KRITICKÉ: Předáváme příkaz dál, aby se nezablokoval normální typing
+        return vscode.commands.executeCommand('default:type', args);
     });
 
-    // Method 4: Active editor change monitoring
-    // Detekce kdy se uživatel přepne do Copilot Chat
-    const editorChangeListener = vscode.window.onDidChangeActiveTextEditor(editor => {
-        if (editor && editor.document.uri.scheme === 'chat-editing-snapshot-text-model') {
-            debugChannel.appendLine(`📝 Switched to Copilot Chat editor`);
-        }
-    });
-
-    debugChannel.appendLine('✅ Simple Enter detection active (4 methods)');
+    debugChannel.appendLine('✅ Simple Enter detection active');
     
-    return [textChangeListener, keyBindingListener, selectionChangeListener, editorChangeListener];
+    return [textChangeListener, keyListener];
 }
