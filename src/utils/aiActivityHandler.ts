@@ -75,7 +75,8 @@ export async function generateSmartNotificationMessage(debugChannel: vscode.Outp
 
 export function updateStatusBar(statusBarItem: vscode.StatusBarItem, aiPromptCounter: { value: number }) {
     if (statusBarItem) {
-        statusBarItem.text = `$(robot) AI: ${aiPromptCounter.value}`;
-        statusBarItem.tooltip = `AI prompts detected: ${aiPromptCounter.value}`;
+        statusBarItem.text = `$(robot) AI: ${aiPromptCounter.value} | v1.1.35`;
+        statusBarItem.tooltip = `AI prompts detected: ${aiPromptCounter.value} | SpecStory AutoSave + AI Copilot Prompt Detection v1.1.35`;
+        statusBarItem.show(); // Ensure the status bar is visible
     }
 }

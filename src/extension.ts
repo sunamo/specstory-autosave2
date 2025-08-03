@@ -39,8 +39,9 @@ export function activate(context: vscode.ExtensionContext) {
     statusBarItem.command = 'specstoryautosave.showPromptStats';
     context.subscriptions.push(statusBarItem);
     
-    // Initialize status bar immediately
+    // Initialize status bar immediately and show it
     updateStatusBar(statusBarItem, aiPromptCounter);
+    statusBarItem.show(); // Explicitly show the status bar
     
     const config = vscode.workspace.getConfiguration('specstoryautosave');
     const enableDebugLogs = config.get<boolean>('enableDebugLogs', false);
