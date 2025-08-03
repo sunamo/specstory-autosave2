@@ -70,11 +70,15 @@ export function initializeBasicDetection(
         const now = Date.now();
         const timeSinceLastDetection = now - lastGlobalDetection;
         
+        logDebug(`🔍 DEBOUNCE CHECK: source=[${source}], timeSince=${timeSinceLastDetection}ms, need=${DEBOUNCE_MS}ms`);
+        
         if (timeSinceLastDetection > DEBOUNCE_MS) {
             lastGlobalDetection = now;
             lastDetectionSource = source;
             logDebug(`🎯 DETECTION ALLOWED from [${source}] - ${timeSinceLastDetection}ms since last [${lastDetectionSource}]`);
+            logDebug(`📞 CALLING handleAIActivity() from [${source}]`);
             handleAIActivity();
+            logDebug(`✅ handleAIActivity() FINISHED from [${source}]`);
         } else {
             logDebug(`🛑 DETECTION BLOCKED from [${source}] - only ${timeSinceLastDetection}ms ago from [${lastDetectionSource}] (need ${DEBOUNCE_MS}ms)`);
         }

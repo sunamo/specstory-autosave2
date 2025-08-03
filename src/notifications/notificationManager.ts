@@ -44,13 +44,15 @@ export async function showAINotificationImmediately(
         }
     } else if (displayType === 'activitybar') {
         // Use activity bar view + brief notification
+        debugChannel.appendLine('[DEBUG] 🎯 === showAINotificationImmediately ACTIVITYBAR START ===');
         debugChannel.appendLine('[DEBUG] Using activity bar display with brief notification');
         
         const startTime = Date.now();
         
         // Add notification first
+        debugChannel.appendLine('[DEBUG] 📞 CALLING aiActivityProvider.addNotification()...');
         await aiActivityProvider.addNotification(message);
-        debugChannel.appendLine(`[DEBUG] Activity provider notification added in ${Date.now() - startTime}ms`);
+        debugChannel.appendLine(`[DEBUG] ✅ Activity provider notification added in ${Date.now() - startTime}ms`);
         
         // Show brief VS Code notification as well for immediate feedback
         const shortMessage = message.split('\n')[0]; // First line only
@@ -58,7 +60,9 @@ export async function showAINotificationImmediately(
             `🤖 ${shortMessage}`,
             { modal: false }
         );
-        debugChannel.appendLine('[DEBUG] Brief notification shown');
+        debugChannel.appendLine('[DEBUG] ✅ Brief notification shown');
+        
+        debugChannel.appendLine('[DEBUG] 🎯 === showAINotificationImmediately ACTIVITYBAR END ===');
         
         // Focus the activity bar view with retry mechanism
         try {

@@ -23,6 +23,8 @@ export function handleAIActivity(
     updateStatusBarCallback: () => void,
     lastDetectedTime?: { value: number }
 ) {
+    debugChannel.appendLine(`[DEBUG] 🎯 === handleAIActivity() CALLED ===`);
+    
     // NO COOLDOWN - detect every AI prompt immediately!
     const now = Date.now();
     
@@ -41,9 +43,11 @@ export function handleAIActivity(
     // ALWAYS show notification when enabled - no frequency check for maximum reliability
     if (enableNotifications) {
         debugChannel.appendLine(`[DEBUG] ✅ SHOWING NOTIFICATION IMMEDIATELY (counter ${aiPromptCounter.value})`);
+        debugChannel.appendLine(`[DEBUG] 📞 CALLING showNotificationCallback()...`);
         showNotificationCallback().catch((error) => {
             debugChannel.appendLine(`[DEBUG] ❌ Error showing notification: ${error}`);
         });
+        debugChannel.appendLine(`[DEBUG] ✅ showNotificationCallback() CALLED (async)`);
     } else {
         debugChannel.appendLine(`[DEBUG] ❌ Notifications disabled in settings`);
     }
