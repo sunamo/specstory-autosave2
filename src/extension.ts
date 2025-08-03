@@ -413,12 +413,27 @@ function registerCommands(context: vscode.ExtensionContext) {
     });
 
     // Register force AI notification command
-    const forceAINotification = vscode.commands.registerCommand('specstoryautosave.forceAINotification', () => {
+    const forceAINotification = vscode.commands.registerCommand('specstoryautosave.forceAINotification', async (realPrompt?: string) => {
         debugChannel.appendLine('[DEBUG] 🔧 FORCE TRIGGER: User manually triggered AI notification');
-        handleAIActivity(aiPromptCounter, debugChannel, async () => {
-            const message = await generateSmartNotificationMessage(debugChannel);
-            await showAINotificationImmediately(message, aiActivityProvider, aiNotificationPanel, debugChannel, countdownTimer);
-        }, () => updateStatusBar(statusBarItem, aiPromptCounter), lastDetectedTime);
+        
+        if (realPrompt && realPrompt.length > 0) {
+            // Pokud máme skutečný prompt, přidáme ho přímo do Activity Bar
+            debugChannel.appendLine(`[DEBUG] 🎯 Adding real prompt to Activity Bar: "${realPrompt.substring(0, 100)}..."`);
+            await aiActivityProvider.addNotification(realPrompt);
+            
+            // Aktualizujeme counter a status bar
+            aiPromptCounter.value++;
+            lastDetectedTime.value = Date.now();
+            updateStatusBar(statusBarItem, aiPromptCounter);
+            
+            debugChannel.appendLine(`[DEBUG] ✅ Real prompt added successfully! Counter: ${aiPromptCounter.value}`);
+        } else {
+            // Standardní cesta bez reálného promptu
+            handleAIActivity(aiPromptCounter, debugChannel, async () => {
+                const message = await generateSmartNotificationMessage(debugChannel);
+                await showAINotificationImmediately(message, aiActivityProvider, aiNotificationPanel, debugChannel, countdownTimer);
+            }, () => updateStatusBar(statusBarItem, aiPromptCounter), lastDetectedTime);
+        }
     });
 
     // Register show prompt stats command

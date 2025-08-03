@@ -1,16 +1,30 @@
 import * as vscode from "vscode";
 
+// Jednoduchá funkce pro aktualizaci Activity Bar bez dummy zpráv
+async function addRealPromptToActivityBar(realPrompt: string, debugChannel: vscode.OutputChannel) {
+    try {
+        // Najdeme Activity Bar provider přes extension API
+        const aiExtension = vscode.extensions.getExtension('sunamocz.specstory-autosave');
+        if (aiExtension && aiExtension.isActive) {
+            // Pošleme event pro přidání do Activity Bar
+            await vscode.commands.executeCommand('specstoryautosave.forceAINotification', realPrompt);
+            debugChannel.appendLine(`✅ Real prompt sent to Activity Bar: "${realPrompt.substring(0, 100)}..."`);
+        } else {
+            debugChannel.appendLine(`⚠️ Extension not active - cannot add to Activity Bar`);
+        }
+    } catch (error) {
+        debugChannel.appendLine(`⚠️ Error adding to Activity Bar: ${error}`);
+    }
+}
+
 export function initializeEnterKeyDetection(handleAIActivity: () => void, debugChannel: vscode.OutputChannel): vscode.Disposable[] {
     // Register command that matches package.json keybinding
     const cmd = vscode.commands.registerCommand("specstoryautosave.interceptEnter", async () => {
-        // STEP 1: OKAMŽITÁ notifikace (první věc!)
-        vscode.window.showInformationMessage("🤖 AI Prompt detected! Processing...");
         debugChannel.appendLine("🎯 ENTER INTERCEPTED - Processing...");
         
-        // STEP 2: Zachytit SKUTEČNÝ text z Copilot Chat inputu
+        // STEP 1: Zachytit SKUTEČNÝ text z Copilot Chat inputu
         let realUserPrompt = "";
         try {
-            // Zkusíme různé způsoby zachycení chat inputu
             const activeEditor = vscode.window.activeTextEditor;
             if (activeEditor) {
                 const document = activeEditor.document;
@@ -21,22 +35,23 @@ export function initializeEnterKeyDetection(handleAIActivity: () => void, debugC
                     realUserPrompt = document.getText().trim();
                     debugChannel.appendLine(`📝 REAL PROMPT captured: "${realUserPrompt.substring(0, 100)}${realUserPrompt.length > 100 ? '...' : ''}"`);
                 }
-                
-                // Pokud máme skutečný text, předáme ho jako context pro handleAIActivity
-                if (realUserPrompt) {
-                    debugChannel.appendLine(`✅ REAL DATA AVAILABLE - No dummy message needed`);
-                    // TODO: Předat realUserPrompt do handleAIActivity jako context
-                    handleAIActivity(); // Momentálně bez parametru, ale máme skutečná data
-                } else {
-                    debugChannel.appendLine(`⚠️ No real prompt captured - will rely on disk detection`);
-                    handleAIActivity();
-                }
-            } else {
-                debugChannel.appendLine(`⚠️ No active editor - will rely on disk detection`);
-                handleAIActivity();
             }
         } catch (error) {
             debugChannel.appendLine(`⚠️ Error capturing real prompt: ${error}`);
+        }
+        
+        // STEP 2: Přidat skutečný prompt přímo do Activity Bar (BEZ dummy zpráv!)
+        if (realUserPrompt && realUserPrompt.length > 0) {
+            debugChannel.appendLine(`✅ ADDING REAL PROMPT TO ACTIVITY BAR: "${realUserPrompt.substring(0, 100)}..."`);
+            
+            // Přidáme skutečný prompt přímo pomocí command
+            await addRealPromptToActivityBar(realUserPrompt, debugChannel);
+            
+            debugChannel.appendLine(`🎯 REAL PROMPT PROCESSING COMPLETED!`);
+        } else {
+            debugChannel.appendLine(`⚠️ No real prompt captured - will use standard detection`);
+            
+            // Fallback na standardní detekci, pokud se nepodaří zachytit prompt
             handleAIActivity();
         }
         
@@ -48,7 +63,7 @@ export function initializeEnterKeyDetection(handleAIActivity: () => void, debugC
             debugChannel.appendLine(`⚠️ Error forwarding to Copilot: ${error}`);
         }
         
-        debugChannel.appendLine("🔄 Real prompt processing initiated");
+        debugChannel.appendLine("🔄 Real prompt processing completed");
     });
     
     debugChannel.appendLine("🚀 Enter interception with REAL PROMPT capture active!");
