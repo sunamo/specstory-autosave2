@@ -50,8 +50,23 @@ export function initializeBasicDetection(
     
     const disposables: vscode.Disposable[] = [];
     
+    // ADD GLOBAL DEBOUNCE MECHANISM to prevent duplicate detections
+    let lastGlobalDetection = 0;
+    const DEBOUNCE_MS = 1000; // 1 second debounce between detections
+    
+    const debouncedHandleAIActivity = () => {
+        const now = Date.now();
+        if (now - lastGlobalDetection > DEBOUNCE_MS) {
+            lastGlobalDetection = now;
+            logDebug(`🎯 DETECTION ALLOWED (${now - lastGlobalDetection}ms since last)`);
+            handleAIActivity();
+        } else {
+            logDebug(`🛑 DETECTION BLOCKED by debounce (${now - lastGlobalDetection}ms ago, need ${DEBOUNCE_MS}ms)`);
+        }
+    };
+    
     // NEW: SpecStory file monitoring for immediate detection
-    const specstoryWatcher = initializeSpecStoryWatcher(handleAIActivity, debugChannel);
+    const specstoryWatcher = initializeSpecStoryWatcher(debouncedHandleAIActivity, debugChannel);
     if (specstoryWatcher) {
         disposables.push(specstoryWatcher);
     }
@@ -64,7 +79,7 @@ export function initializeBasicDetection(
             event.affectsConfiguration('github.copilot')) {
             logDebug('⚙️ COPILOT CONFIGURATION CHANGE DETECTED!');
             logAIActivity('AI activity detected via configuration change');
-            handleAIActivity();
+            debouncedHandleAIActivity();
         }
     });
     disposables.push(disposableUniversal);
@@ -89,54 +104,30 @@ export function initializeBasicDetection(
                 // Remove timing restriction for immediate response
                 logDebug('🚀 ENHANCED WEBVIEW DETECTION!');
                 logAIActivity('AI activity detected via webview panel activation');
-                handleAIActivity();
+                debouncedHandleAIActivity();
             }
         });
         disposables.push(disposable1);
         
-        // NEW: Additional webview monitoring for ALL Copilot activity
+        // NEW: Additional webview monitoring for ALL Copilot activity - SIMPLIFIED
         const disposable1b = vscode.window.onDidChangeVisibleTextEditors((editors) => {
             logDebug(`👁️ Visible editors changed: ${editors.length} editors`);
             
-            editors.forEach((editor, index) => {
-                if (!editor) return;
+            // Only check if any editor contains copilot/chat - don't loop through all
+            const hasCopilotEditor = editors.some(editor => {
+                if (!editor) return false;
                 const uri = editor.document.uri.toString();
-                
-                logDebug(`  Editor #${index + 1}: ${uri}`);
-                
-                // Detect ANY Copilot-related activity
-                if (uri.includes('copilot') || uri.includes('chat') || 
-                    uri.includes('github.copilot') || uri.includes('inlinechat')) {
-                    logDebug(`🎯 COPILOT ACTIVITY VIA VISIBLE EDITORS: ${uri}`);
-                    logAIActivity(`Copilot activity detected via visible editors: ${uri}`);
-                    handleAIActivity();
-                }
+                return uri.includes('copilot') || uri.includes('chat') || 
+                       uri.includes('github.copilot') || uri.includes('inlinechat');
             });
-        });
-        disposables.push(disposable1b);
-        
-        // NEW: Monitor active editor changes more aggressively  
-        const disposable1c = vscode.window.onDidChangeActiveTextEditor((editor) => {
-            // Always log editor changes for debugging
-            if (editor) {
-                const uri = editor.document.uri.toString();
-                logDebug(`📝 ACTIVE EDITOR CHANGED: ${uri}`);
-                
-                // Trigger on ANY chat-related editor activation
-                if (uri.includes('copilot') || uri.includes('chat') || 
-                    uri.includes('github.copilot') || uri.includes('inlinechat') ||
-                    (uri.includes('webview') && (uri.includes('chat') || uri.includes('copilot')))) {
-                    
-                    logDebug(`🎯 COPILOT EDITOR ACTIVATED: ${uri}`);
-                    logAIActivity(`Copilot editor activated: ${uri}`);
-                    handleAIActivity();
-                }
-            } else {
-                logDebug(`📝 ACTIVE EDITOR CHANGED: null`);
+            
+            if (hasCopilotEditor) {
+                logDebug(`🎯 COPILOT ACTIVITY VIA VISIBLE EDITORS`);
+                logAIActivity(`Copilot activity detected via visible editors`);
+                debouncedHandleAIActivity();
             }
         });
         disposables.push(disposable1b);
-        disposables.push(disposable1c);
     }
     
     // Method 2: Monitor panel state changes (if enabled)
@@ -158,7 +149,7 @@ export function initializeBasicDetection(
                         debugChannel.appendLine(`[DEBUG] 💬 Found ${activeChatCommands.length} active chat commands`);
                         logDebug('🚀 CHAT COMMANDS DETECTED!');
                         logAIActivity(`Found ${activeChatCommands.length} active chat commands`);
-                        handleAIActivity();
+                        debouncedHandleAIActivity();
                     }
                 });
             }
@@ -170,7 +161,7 @@ export function initializeBasicDetection(
             if (terminal && terminal.name.toLowerCase().includes('copilot')) {
                 logDebug(`🖥️ COPILOT TERMINAL ACTIVATED: ${terminal.name}`);
                 logAIActivity(`Copilot terminal activated: ${terminal.name}`);
-                handleAIActivity();
+                debouncedHandleAIActivity();
             }
         });
         disposables.push(disposable2b);
@@ -213,7 +204,7 @@ export function initializeBasicDetection(
                     logAIActivity(`AI activity detected via command: ${command}`);
                     
                     try {
-                        handleAIActivity();
+                        debouncedHandleAIActivity();
                         logDebug(`✅ handleAIActivity called successfully for command: ${command}`);
                     } catch (handleError) {
                         logDebug(`❌ handleAIActivity failed for command ${command}: ${handleError}`);
@@ -245,7 +236,7 @@ export function initializeBasicDetection(
         if (event.selections.length > 0 && (uri.includes('copilot') || uri.includes('chat'))) {
             logDebug(`📝 TEXT SELECTION IN COPILOT CONTEXT: ${uri}`);
             logAIActivity(`Text selection change in Copilot context: ${uri}`);
-            handleAIActivity();
+            debouncedHandleAIActivity();
         }
     });
     disposables.push(disposable4);
@@ -284,7 +275,7 @@ export function initializeBasicDetection(
             if (event.selections.some(sel => !sel.isEmpty)) {
                 logDebug(`🎯 CHAT SELECTION ACTIVITY: ${uri}`);
                 logAIActivity(`Chat selection activity detected: ${uri}`);
-                handleAIActivity();
+                debouncedHandleAIActivity();
             }
         }
     });
@@ -312,7 +303,7 @@ export function initializeBasicDetection(
                 logAIActivity(`User typing detected in chat: ${uri}`);
                 // Small delay to capture full prompt
                 setTimeout(() => {
-                    handleAIActivity();
+                    debouncedHandleAIActivity();
                 }, 200);
             }
         }
@@ -320,7 +311,7 @@ export function initializeBasicDetection(
     disposables.push(disposable7);
     
     // NEW: Polling mechanism as backup detection
-    const pollingInterval = initializePollingDetection(handleAIActivity, debugChannel);
+    const pollingInterval = initializePollingDetection(debouncedHandleAIActivity, debugChannel);
     if (pollingInterval) {
         disposables.push({ dispose: () => clearInterval(pollingInterval) });
     }
