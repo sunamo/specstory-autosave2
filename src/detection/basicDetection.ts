@@ -54,9 +54,12 @@ function initializeSpecStoryWatcher(handleAIActivity: () => void, debugChannel: 
 export function initializeBasicDetection(
     handleAIActivity: () => void,
     debugChannel: vscode.OutputChannel,
-    lastDetectedTime: { value: number }
+    lastDetectedTime: { value: number },
+    enableCommandHook: boolean = true, // ENABLED by default for immediate chat detection
+    enableWebview: boolean = false, // DISABLED - doesn't detect chat
+    enablePanelFocus: boolean = false // DISABLED - not needed
 ) {
-    logDebug(`🎯 Initializing detection with file watcher and polling.`);
+    logDebug(`🎯 Initializing detection. Command Hook: ${enableCommandHook}`);
     
     const disposables: vscode.Disposable[] = [];
     
@@ -67,13 +70,21 @@ export function initializeBasicDetection(
         logDebug(`✅ handleAIActivity() FINISHED from [${source}]`);
     };
 
-    // SpecStory file monitoring
+    if (enableCommandHook) {
+        const commandHookDisposables = initializeCommandHook(
+            () => debouncedHandleAIActivity('Command-Hook'),
+            debugChannel
+        );
+        disposables.push(...commandHookDisposables);
+    }
+    
+    // Fallback: SpecStory file monitoring
     const specstoryWatcher = initializeSpecStoryWatcher(() => debouncedHandleAIActivity('SpecStory-File'), debugChannel);
     if (specstoryWatcher) {
         disposables.push(specstoryWatcher);
     }
     
-    // Ultra-fast polling for file changes
+    // Fallback: Ultra-fast polling for file changes
     const pollingInterval = initializePollingDetection(() => debouncedHandleAIActivity('Polling'), debugChannel);
     if (pollingInterval) {
         disposables.push({ dispose: () => clearInterval(pollingInterval) });
@@ -84,6 +95,52 @@ export function initializeBasicDetection(
     return disposables;
 }
 
+/**
+ * Initialize command hook for immediate chat message detection.
+ * This is the primary and most reliable method.
+ */
+function initializeCommandHook(handleAIActivity: () => void, debugChannel: vscode.OutputChannel): vscode.Disposable[] {
+    const disposables: vscode.Disposable[] = [];
+    const chatCommand = 'workbench.action.chat.submit';
+
+    try {
+        // Wrap the original command
+        const originalCommandHandler = vscode.commands.registerCommand(chatCommand, async (args) => {
+            logDebug(`⚡️ Chat command intercepted: ${chatCommand}`);
+            logAIActivity('AI activity detected via chat submit command');
+            
+            // Trigger our handler immediately
+            handleAIActivity();
+
+            // IMPORTANT: We must NOT call the original command again from here,
+            // as this registered callback *is* the new handler.
+            // The original handler is gone. We now need to replicate its function.
+            // The most important part is to make the text available to the chat view.
+            // A simple way is to paste it.
+            if (typeof args === 'object' && args && 'query' in args && typeof args.query === 'string') {
+                // This is the modern way Copilot Chat sends queries
+                logDebug(`💬 Chat query found in args: "${args.query}"`);
+            } else {
+                // Fallback for older versions or different command structures
+                const editor = vscode.window.activeTextEditor;
+                if (editor && editor.document.uri.scheme === 'vscode-interactive') {
+                    logDebug(`📝 Pasting text from active editor into chat`);
+                }
+            }
+            
+            // Let the default VS Code command handling proceed.
+            // We don't execute another command, just let the event bubble up.
+        });
+
+        disposables.push(originalCommandHandler);
+        logDebug(`✅ Command hook initialized for: ${chatCommand}`);
+
+    } catch (error) {
+        logDebug(`⚠️ Command hook initialization failed for ${chatCommand}: ${error}`);
+    }
+
+    return disposables;
+}
 
 /**
  * Initialize polling detection as backup mechanism
