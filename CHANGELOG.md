@@ -3,6 +3,16 @@
 ## [1.1.25] - 2025-08-03
 
 ### Added
+## [1.1.30] - 2025-01-08
+### Changed
+- Default notification display type changed to "activitybar" - AI notifications now show in Activity Bar by default
+- Improved user experience with Activity Bar as primary notification location
+
+## [1.1.29] - 2025-01-08
+### Changed
+- Activity Bar now uses custom marketplace icon (icon.svg) instead of generic robot icon
+- Improved branding consistency with extension marketplace listing
+
 ## [1.1.28] - 2025-01-08
 ### Added
 - Activity Bar integration with dedicated "SpecStory AI Monitor" view
