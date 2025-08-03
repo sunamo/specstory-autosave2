@@ -175,8 +175,8 @@ export function initializeBasicDetection(
         disposables.push(disposable2b);
     }
     
-    // Method 3: Enhanced command hook (if enabled)
-    if (enableCommandHook) {
+    // Method 3: Enhanced command hook (DISABLED - testing for duplicates)
+    if (false && enableCommandHook) {
         try {
             const originalExecuteCommand = vscode.commands.executeCommand;
             
@@ -234,7 +234,8 @@ export function initializeBasicDetection(
         }
     }
     
-    // NEW: Monitor text selection changes in case of Copilot inline suggestions
+    // DISABLED: Monitor text selection changes - testing for duplicates
+    /*
     const disposable4 = vscode.window.onDidChangeTextEditorSelection((event) => {
         const editor = event.textEditor;
         if (!editor) return;
@@ -248,6 +249,7 @@ export function initializeBasicDetection(
         }
     });
     disposables.push(disposable4);
+    */
     
     // NEW: Monitor document changes that might indicate AI responses - DISABLED for Ask prompts
     // This detection is not useful for "Ask" type prompts that don't change code
@@ -271,7 +273,8 @@ export function initializeBasicDetection(
     disposables.push(disposable5);
     */
     
-    // NEW: Aggressive keyboard activity monitoring for Chat prompts
+    // DISABLED: Aggressive keyboard activity monitoring - testing for duplicates
+    /*
     const disposable6 = vscode.window.onDidChangeTextEditorSelection((event) => {
         const editor = event.textEditor;
         if (!editor) return;
@@ -288,9 +291,11 @@ export function initializeBasicDetection(
         }
     });
     disposables.push(disposable6);
+    */
     
-    // NEW: Monitor ANY keyboard activity in VS Code (for Chat detection)
-    const disposable7 = vscode.workspace.onDidChangeTextDocument((event) => {
+    // DISABLED: Monitor keyboard activity - testing for duplicates
+    /*
+    const disposable7 = vscode.window.onDidChangeTextDocument((event) => {
         if (!event.document) return;
         
         const uri = event.document.uri.toString();
@@ -317,6 +322,7 @@ export function initializeBasicDetection(
         }
     });
     disposables.push(disposable7);
+    */
     
     // NEW: Polling mechanism as backup detection
     const pollingInterval = initializePollingDetection(() => debouncedHandleAIActivity('Polling'), debugChannel);
