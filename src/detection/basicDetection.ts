@@ -183,6 +183,7 @@ export function initializeBasicDetection(
     // Method 3: Enhanced command hook (RE-ENABLED for immediate command detection)
     if (enableCommandHook) {
         try {
+            // APPROACH 1: Hook into VS Code command system earlier
             const originalExecuteCommand = vscode.commands.executeCommand;
             
             (vscode.commands as any).executeCommand = async function(command: string, ...args: any[]) {
@@ -244,6 +245,34 @@ export function initializeBasicDetection(
                 }
             };
             
+            // APPROACH 2: Monitor keyboard events directly
+            const keyboardDisposable = vscode.workspace.onDidChangeTextDocument((event) => {
+                if (!event.document) return;
+                
+                const uri = event.document.uri.toString();
+                
+                // Look for ANY document changes that might be chat-related
+                if (uri.includes('copilot') || uri.includes('chat') || uri.includes('webview')) {
+                    logDebug(`🎹 KEYBOARD EVENT in chat context: ${uri}`);
+                    logDebug(`📝 Content changes: ${event.contentChanges.length}`);
+                    
+                    event.contentChanges.forEach((change, index) => {
+                        logDebug(`   Change ${index}: text="${change.text}" rangeLength=${change.rangeLength}`);
+                        
+                        // Detect potential Enter key presses or prompt submissions
+                        if (change.text === '\n' || (change.text === '' && change.rangeLength > 5)) {
+                            logDebug(`🚀 POTENTIAL ENTER KEY DETECTED in chat!`);
+                            logAIActivity(`Potential prompt submission detected via keyboard: ${uri}`);
+                            
+                            setTimeout(() => {
+                                debouncedHandleAIActivity('Keyboard-Enter');
+                            }, 100); // Small delay to let submission complete
+                        }
+                    });
+                }
+            });
+            disposables.push(keyboardDisposable);
+            
             logDebug('✅ Enhanced command hook installed with comprehensive error handling');
         } catch (error) {
             logDebug(`⚠️ Command hook failed: ${error}`);
@@ -297,6 +326,13 @@ export function initializeBasicDetection(
         const uri = editor.document.uri.toString();
         // Detect ANY activity in Copilot Chat context
         if (uri.includes('copilot') || uri.includes('chat') || uri.includes('github.copilot')) {
+            logDebug(`🎯 CHAT CONTEXT ACTIVITY: ${uri}`);
+            
+            // Log selection details for debugging
+            event.selections.forEach((selection, index) => {
+                logDebug(`   Selection ${index}: empty=${selection.isEmpty} line=${selection.start.line} char=${selection.start.character}`);
+            });
+            
             // Only trigger on significant selection changes (not just cursor moves)
             if (event.selections.some(sel => !sel.isEmpty)) {
                 logDebug(`🎯 CHAT SELECTION ACTIVITY: ${uri}`);
@@ -306,6 +342,27 @@ export function initializeBasicDetection(
         }
     });
     disposables.push(disposable6);
+    
+    // NEW: Monitor window focus changes for chat detection
+    const disposable6b = vscode.window.onDidChangeWindowState((state) => {
+        if (state.focused) {
+            logDebug(`🖼️ WINDOW FOCUS GAINED - checking active editor`);
+            
+            const activeEditor = vscode.window.activeTextEditor;
+            if (activeEditor) {
+                const uri = activeEditor.document.uri.toString();
+                if (uri.includes('copilot') || uri.includes('chat')) {
+                    logDebug(`🎯 WINDOW FOCUS on chat context: ${uri}`);
+                    logAIActivity(`Window focus on chat context: ${uri}`);
+                    // Immediate trigger for focus events
+                    setTimeout(() => {
+                        debouncedHandleAIActivity('Window-Focus');
+                    }, 50);
+                }
+            }
+        }
+    });
+    disposables.push(disposable6b);
     
     // RE-ENABLED: Monitor keyboard activity for immediate Enter detection
     const disposable7 = vscode.workspace.onDidChangeTextDocument((event) => {
