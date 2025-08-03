@@ -189,11 +189,11 @@ export function initializeBasicDetection(
                 const cmd = command.toLowerCase();
                 
                 // DEBUG: Log ALL commands for troubleshooting
-                if (Math.random() < 0.05) { // 5% chance to avoid spam
+                if (Math.random() < 0.1) { // Increased to 10% chance to catch more commands
                     logDebug(`🔍 COMMAND EXECUTED: ${command}`);
                 }
                 
-                // Expanded command detection for better coverage
+                // Expanded command detection for better coverage - INCLUDE ENTER/SEND COMMANDS
                 const copilotCommands = [
                     'github.copilot',
                     'copilot-chat',
@@ -204,7 +204,12 @@ export function initializeBasicDetection(
                     'interactive',
                     'copilot.send',
                     'copilot.chat.send',
-                    'workbench.action.openChat'
+                    'workbench.action.openChat',
+                    'chat.action.submit',  // NEW: Likely the Enter command
+                    'workbench.action.chat.submit',  // NEW: Alternative submit
+                    'github.copilot-chat.submit',  // NEW: Copilot Chat submit
+                    'editor.action.inlineSuggest.trigger',  // NEW: Inline suggestions
+                    'workbench.action.chat.send'  // NEW: Generic chat send
                 ];
                 
                 const isCopilotCommand = copilotCommands.some(pattern => cmd.includes(pattern));
@@ -278,8 +283,7 @@ export function initializeBasicDetection(
     disposables.push(disposable5);
     */
     
-    // DISABLED: Aggressive keyboard activity monitoring - testing for duplicates
-    /*
+    // RE-ENABLED: Aggressive keyboard activity monitoring for immediate chat detection
     const disposable6 = vscode.window.onDidChangeTextEditorSelection((event) => {
         const editor = event.textEditor;
         if (!editor) return;
@@ -296,11 +300,9 @@ export function initializeBasicDetection(
         }
     });
     disposables.push(disposable6);
-    */
     
-    // DISABLED: Monitor keyboard activity - testing for duplicates
-    /*
-    const disposable7 = vscode.window.onDidChangeTextDocument((event) => {
+    // RE-ENABLED: Monitor keyboard activity for immediate Enter detection
+    const disposable7 = vscode.workspace.onDidChangeTextDocument((event) => {
         if (!event.document) return;
         
         const uri = event.document.uri.toString();
@@ -308,34 +310,37 @@ export function initializeBasicDetection(
         if ((uri.includes('copilot') || uri.includes('chat')) && 
             event.contentChanges.length > 0) {
             
+            // Check for Enter key press (empty change after user input)
+            const hasEnterPress = event.contentChanges.some(change => 
+                change.text === '' && change.rangeLength > 0 // Text being removed/submitted
+            );
+            
             // Check if this looks like user input (not AI response)
             const hasUserTyping = event.contentChanges.some(change => 
-                change.text.length > 0 && change.text.length < 100 && // Short user input
+                change.text.length > 0 && change.text.length < 500 && // User input range
                 !change.text.includes('```') && // Not code blocks  
                 !change.text.includes('function') && // Not generated code
+                !change.text.includes('##') && // Not markdown headers
                 change.text.trim().length > 0
             );
             
-            if (hasUserTyping) {
-                logDebug(`⌨️ USER TYPING IN CHAT: ${uri}`);
-                logAIActivity(`User typing detected in chat: ${uri}`);
-                // Small delay to capture full prompt
+            if (hasEnterPress || hasUserTyping) {
+                logDebug(`⌨️ USER ACTIVITY IN CHAT: ${uri} (Enter: ${hasEnterPress}, Typing: ${hasUserTyping})`);
+                logAIActivity(`User activity detected in chat: ${uri}`);
+                // Very short delay to capture full prompt submission
                 setTimeout(() => {
                     debouncedHandleAIActivity('User-Typing');
-                }, 200);
+                }, hasEnterPress ? 50 : 100); // Faster for Enter press
             }
         }
     });
     disposables.push(disposable7);
-    */
     
-    // DISABLED: Polling mechanism - testing for duplicates
-    /*
+    // RE-ENABLED: Polling mechanism as backup for immediate detection
     const pollingInterval = initializePollingDetection(() => debouncedHandleAIActivity('Polling'), debugChannel);
     if (pollingInterval) {
         disposables.push({ dispose: () => clearInterval(pollingInterval) });
     }
-    */
     
     logDebug('✅ Enhanced basic detection with multiple fallback methods installed');
     logDebug('💡 If detection still fails, use Ctrl+Shift+P → "SpecStoryAutoSave: Force AI Notification"');
@@ -395,9 +400,9 @@ function initializePollingDetection(handleAIActivity: () => void, debugChannel: 
             } catch (error) {
                 // Ignore polling errors to avoid spam
             }
-        }, 500); // Check every 500ms for faster detection
+        }, 200); // Check every 200ms for ultra-fast detection
         
-        logDebug('📊 Fast polling detection initialized (500ms interval)');
+        logDebug('📊 Ultra-fast polling detection initialized (200ms interval)');
         return pollingInterval;
     } catch (error) {
         logDebug(`⚠️ Polling detection failed: ${error}`);
