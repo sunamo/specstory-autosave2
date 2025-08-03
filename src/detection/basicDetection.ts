@@ -2,6 +2,38 @@ import * as vscode from 'vscode';
 import { logDebug, logAIActivity } from '../utils/logger';
 
 /**
+ * Initialize SpecStory file watcher for immediate detection
+ */
+function initializeSpecStoryWatcher(handleAIActivity: () => void, debugChannel: vscode.OutputChannel): vscode.Disposable | null {
+    try {
+        // Watch for changes in SpecStory history folder
+        const fileWatcher = vscode.workspace.createFileSystemWatcher('**/.specstory/history/*.md');
+        let lastFileChange = 0;
+        
+        const onSpecStoryChange = (uri: vscode.Uri) => {
+            const now = Date.now();
+            // Debounce rapid file changes but allow immediate detection
+            if (now - lastFileChange > 500) {
+                lastFileChange = now;
+                logDebug(`📝 SpecStory file changed: ${uri.fsPath}`);
+                logDebug('🚀 SPECSTORY FILE DETECTION!');
+                logAIActivity('AI activity detected via SpecStory file change');
+                handleAIActivity();
+            }
+        };
+        
+        fileWatcher.onDidCreate(onSpecStoryChange);
+        fileWatcher.onDidChange(onSpecStoryChange);
+        
+        logDebug('📁 SpecStory file watcher initialized');
+        return fileWatcher;
+    } catch (error) {
+        logDebug(`⚠️ SpecStory file watcher failed: ${error}`);
+        return null;
+    }
+}
+
+/**
  * Basic detection methods - command hooks, webview monitoring, panel focus
  */
 export function initializeBasicDetection(
@@ -12,11 +44,17 @@ export function initializeBasicDetection(
     enableWebview: boolean = true, 
     enablePanelFocus: boolean = true
 ) {
-    logDebug(`🎯 Initializing BASIC detection - CommandHook: ${enableCommandHook}, Webview: ${enableWebview}, PanelFocus: ${enablePanelFocus}`);
+    logDebug(`🎯 Initializing ENHANCED BASIC detection - CommandHook: ${enableCommandHook}, Webview: ${enableWebview}, PanelFocus: ${enablePanelFocus}`);
     
     const disposables: vscode.Disposable[] = [];
     
-    // Method 1: Monitor chat panel visibility and focus (if enabled)
+    // NEW: SpecStory file monitoring for immediate detection
+    const specstoryWatcher = initializeSpecStoryWatcher(handleAIActivity, debugChannel);
+    if (specstoryWatcher) {
+        disposables.push(specstoryWatcher);
+    }
+    
+    // Method 1: Monitor chat panel visibility and focus (IMPROVED)
     if (enableWebview) {
         const disposable1 = vscode.window.onDidChangeActiveTextEditor((editor) => {
             if (!editor) return;
@@ -24,12 +62,17 @@ export function initializeBasicDetection(
             const uri = editor.document.uri.toString();
             logDebug(`📝 Active editor: ${uri}`);
             
-            // Detect Copilot Chat webview panels
-            if (uri.includes('webview-panel') && uri.includes('copilot')) {
+            // Detect Copilot Chat webview panels (expanded detection)
+            if ((uri.includes('webview-panel') && uri.includes('copilot')) ||
+                uri.includes('github.copilot-chat') ||
+                uri.includes('copilot.chat') ||
+                (uri.includes('webview') && uri.includes('chat'))) {
+                
                 logDebug(`🎯 COPILOT CHAT PANEL DETECTED: ${uri}`);
                 logAIActivity(`Copilot Chat panel activated: ${uri}`);
                 
-                logDebug('🚀 BASIC WEBVIEW DETECTION!');
+                // Remove timing restriction for immediate response
+                logDebug('🚀 ENHANCED WEBVIEW DETECTION!');
                 logAIActivity('AI activity detected via webview panel activation');
                 handleAIActivity();
             }
@@ -59,7 +102,7 @@ export function initializeBasicDetection(
         disposables.push(disposable2);
     }
     
-    // Method 3: Try command hook (if enabled)
+    // Method 3: Enhanced command hook (if enabled)
     if (enableCommandHook) {
         try {
             const originalExecuteCommand = vscode.commands.executeCommand;
@@ -67,33 +110,98 @@ export function initializeBasicDetection(
             (vscode.commands as any).executeCommand = async function(command: string, ...args: any[]) {
                 const cmd = command.toLowerCase();
                 
-                // Only log specific commands to reduce noise
-                if (cmd.includes('copilot') || cmd.includes('chat')) {
-                    debugChannel.appendLine(`[DEBUG] 🔧 COMMAND: ${command}`);
+                // Expanded command detection for better coverage
+                const copilotCommands = [
+                    'github.copilot',
+                    'copilot-chat',
+                    'chat.send',
+                    'workbench.panel.chat',
+                    'workbench.action.chat',
+                    'inlinechat',
+                    'interactive'
+                ];
+                
+                const isCopilotCommand = copilotCommands.some(pattern => cmd.includes(pattern));
+                
+                if (isCopilotCommand) {
+                    logDebug(`🔧 COPILOT COMMAND: ${command}`);
                     
-                    // Copilot command detection
-                    if (cmd.startsWith('github.copilot') || 
-                        cmd.includes('copilot-chat') ||
-                        cmd.includes('chat.send') ||
-                        cmd === 'workbench.panel.chat.view.copilot.focus') {
-                        
-                        debugChannel.appendLine(`[DEBUG] 🎯 COPILOT COMMAND: ${command}`);
-                        debugChannel.appendLine('[DEBUG] 🚀 COMMAND HOOK DETECTION!');
-                        handleAIActivity();
-                    }
+                    // Immediate detection without timing restrictions
+                    logDebug('🚀 ENHANCED COMMAND HOOK DETECTION!');
+                    logAIActivity(`AI activity detected via command: ${command}`);
+                    handleAIActivity();
                 }
                 
                 return originalExecuteCommand.apply(this, [command, ...args]);
             };
             
-            debugChannel.appendLine('[DEBUG] ✅ Command hook attempted (may not work in dev host)');
+            logDebug('✅ Enhanced command hook installed');
         } catch (error) {
-            debugChannel.appendLine(`[DEBUG] ⚠️ Command hook failed: ${error}`);
+            logDebug(`⚠️ Command hook failed: ${error}`);
         }
     }
     
-    debugChannel.appendLine('[DEBUG] ✅ Basic detection with selected methods installed');
-    debugChannel.appendLine('[DEBUG] 💡 If automatic detection fails, use Ctrl+Shift+P → "SpecStoryAutoSave: Force AI Notification"');
+    // NEW: Polling mechanism as backup detection
+    const pollingInterval = initializePollingDetection(handleAIActivity, debugChannel);
+    if (pollingInterval) {
+        disposables.push({ dispose: () => clearInterval(pollingInterval) });
+    }
+    
+    logDebug('✅ Enhanced basic detection with multiple fallback methods installed');
+    logDebug('💡 If detection still fails, use Ctrl+Shift+P → "SpecStoryAutoSave: Force AI Notification"');
     
     return disposables;
+}
+
+/**
+ * Initialize polling detection as backup mechanism
+ */
+function initializePollingDetection(handleAIActivity: () => void, debugChannel: vscode.OutputChannel): NodeJS.Timeout | null {
+    try {
+        let lastSpecStoryCheck = Date.now();
+        let lastSpecStoryCount = 0;
+        
+        const pollingInterval = setInterval(async () => {
+            try {
+                // Check if SpecStory folder exists and count files
+                const workspaceFolders = vscode.workspace.workspaceFolders;
+                if (!workspaceFolders) return;
+                
+                for (const folder of workspaceFolders) {
+                    const specstoryPath = vscode.Uri.joinPath(folder.uri, '.specstory', 'history');
+                    try {
+                        const files = await vscode.workspace.fs.readDirectory(specstoryPath);
+                        const mdFiles = files.filter(([name, type]) => 
+                            name.endsWith('.md') && type === vscode.FileType.File
+                        );
+                        
+                        // New files detected
+                        if (mdFiles.length > lastSpecStoryCount) {
+                            const newFiles = mdFiles.length - lastSpecStoryCount;
+                            logDebug(`📊 Polling detected ${newFiles} new SpecStory files`);
+                            logDebug('🚀 POLLING DETECTION!');
+                            logAIActivity(`AI activity detected via polling (${newFiles} new files)`);
+                            lastSpecStoryCount = mdFiles.length;
+                            handleAIActivity();
+                        } else if (lastSpecStoryCount === 0) {
+                            // Initialize count on first run
+                            lastSpecStoryCount = mdFiles.length;
+                            logDebug(`📊 Initialized SpecStory file count: ${lastSpecStoryCount}`);
+                        }
+                        
+                    } catch {
+                        // SpecStory folder doesn't exist yet, ignore
+                    }
+                }
+            } catch (error) {
+                // Ignore polling errors to avoid spam
+            }
+        }, 2000); // Check every 2 seconds
+        
+        logDebug('📊 Polling detection initialized (2s interval)');
+        return pollingInterval;
+    } catch (error) {
+        logDebug(`⚠️ Polling detection failed: ${error}`);
+        return null;
+    }
 }
