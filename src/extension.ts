@@ -835,9 +835,14 @@ function generateMessageWithRecentPrompts(conversations: {content: string, topic
     }
     
     // Extract recent user prompts from conversations
-    const recentPrompts: string[] = [];
+    const allPrompts: {text: string, timestamp: string}[] = [];
     
-    for (const conversation of conversations) {
+    // Sort conversations by timestamp to ensure chronological order
+    const sortedConversations = conversations.sort((a, b) => 
+        new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime()
+    );
+    
+    for (const conversation of sortedConversations) {
         const content = conversation.content;
         
         // Debug: log file being processed
@@ -860,18 +865,22 @@ function generateMessageWithRecentPrompts(conversations: {content: string, topic
                 .trim();
             
             if (cleanText && cleanText.length > 10) { // Only meaningful prompts
-                recentPrompts.push(cleanText);
+                allPrompts.push({
+                    text: cleanText,
+                    timestamp: conversation.timestamp
+                });
                 // Debug: log each prompt as it's added
-                debugChannel.appendLine(`[DEBUG] Added prompt ${recentPrompts.length}: ${cleanText.substring(0, 50)}...`);
+                debugChannel.appendLine(`[DEBUG] Added prompt ${allPrompts.length}: ${cleanText.substring(0, 50)}...`);
             }
         }
     }
     
-    debugChannel.appendLine(`[DEBUG] Total prompts collected: ${recentPrompts.length}`);
+    debugChannel.appendLine(`[DEBUG] Total prompts collected: ${allPrompts.length}`);
     
-    // Take last 3 prompts (most recent)
-    const lastPrompts = recentPrompts.slice(-3);
-    debugChannel.appendLine(`[DEBUG] Selected last 3 prompts for display`);
+    // Sort all prompts by timestamp and take the last 3
+    allPrompts.sort((a, b) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime());
+    const lastPrompts = allPrompts.slice(-3).map(p => p.text);
+    debugChannel.appendLine(`[DEBUG] Selected last 3 prompts for display (from ${allPrompts.length} total)`);
     
     // Debug: log the selected prompts
     lastPrompts.forEach((prompt, index) => {

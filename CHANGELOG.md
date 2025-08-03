@@ -19,6 +19,13 @@
 
 # Changelog
 
+## [1.1.18] - 2025-08-03
+
+### Fixed
+- Fixed SpecStory prompt chronological ordering to show actual last 3 prompts
+- Improved prompt timestamp sorting to ensure correct chronological selection
+- Enhanced debug logging to track prompt ordering issues
+
 ## [1.1.17] - 2025-08-03
 ### Fixed
 - **Last 3 prompts bug** - fixed incorrect logic that showed wrong prompts (5,6,7 instead of 15,16,17)
