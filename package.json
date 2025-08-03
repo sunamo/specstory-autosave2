@@ -1,0 +1,217 @@
+{
+  "name": "specstory-autosave",
+  "displayName": "SpecStory AutoSave + AI Copilot Prompt Detection",
+  "description": "Auto-exports GitHub Copilot Chat to SpecStory documentation + instant AI prompt detection with quality verification notifications",
+  "version": "1.0.8",
+  "publisher": "sunamocz",
+  "icon": "icon.png",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/sunamo/specstory-autosave"
+  },
+  "bugs": {
+    "url": "https://github.com/sunamo/specstory-autosave/issues"
+  },
+  "homepage": "https://github.com/sunamo/specstory-autosave#readme",
+  "keywords": [
+    "specstory",
+    "copilot",
+    "chat",
+    "export",
+    "autosave",
+    "ai",
+    "automation"
+  ],
+  "engines": {
+    "vscode": "^1.102.0"
+  },
+  "categories": [
+    "Other",
+    "AI"
+  ],
+  "activationEvents": [
+    "*"
+  ],
+  "main": "./out/extension.js",
+  "contributes": {
+    "commands": [
+      {
+        "command": "specstoryautosave.findSpecStoryCommands",
+        "title": "SpecStoryAutoSave: Find All SpecStory Commands (Test)"
+      },
+      {
+        "command": "specstoryautosave.testSpecStoryDialog",
+        "title": "SpecStoryAutoSave: Test SpecStory Dialog (Test)"
+      },
+      {
+        "command": "specstoryautosave.test",
+        "title": "SpecStoryAutoSave: Test Extension"
+      },
+      {
+        "command": "specstoryautosave.exportNow",
+        "title": "SpecStoryAutoSave: Export Chat History Now"
+      },
+      {
+        "command": "specstoryautosave.showCopilotCommands",
+        "title": "SpecStoryAutoSave: Show Available Copilot Commands (Debug)"
+      },
+      {
+        "command": "specstoryautosave.listAllCommands",
+        "title": "SpecStoryAutoSave: List All Available Commands (Debug)"
+      },
+      {
+        "command": "specstoryautosave.testAINotification",
+        "title": "SpecStoryAutoSave: Force AI Notification (Test)"
+      },
+      {
+        "command": "specstoryautosave.forceAINotification",
+        "title": "SpecStoryAutoSave: Force AI Notification"
+      },
+      {
+        "command": "specstoryautosave.testCopilotDetection",
+        "title": "SpecStoryAutoSave: Test Copilot Detection"
+      },
+      {
+        "command": "specstoryautosave.resetPromptCounter",
+        "title": "SpecStoryAutoSave: Reset AI Prompt Counter"
+      },
+      {
+        "command": "specstoryautosave.toggleCopilotOnlyLogs",
+        "title": "SpecStoryAutoSave: Toggle Copilot-Only Logs"
+      },
+      {
+        "command": "specstoryautosave.clearLogs",
+        "title": "SpecStoryAutoSave: Clear Output Logs"
+      },
+      {
+        "command": "specstoryautosave.showPromptStats",
+        "title": "SpecStoryAutoSave: Show AI Prompt Statistics"
+      },
+      {
+        "command": "specstoryautosave.debugCommands",
+        "title": "SpecStoryAutoSave: Debug Command Detection"
+      },
+      {
+        "command": "specstoryautosave.toggleAINotifications",
+        "title": "SpecStoryAutoSave: Toggle AI Notifications"
+      },
+      {
+        "command": "specstoryautosave.keyboardTrigger",
+        "title": "SpecStoryAutoSave: Trigger AI Notification (Keyboard Test)"
+      }
+    ],
+    "keybindings": [
+      {
+        "command": "specstoryautosave.forceAINotification",
+        "key": "ctrl+shift+a",
+        "when": "editorTextFocus"
+      }
+    ],
+    "configuration": {
+      "title": "SpecStoryAutoSave",
+      "properties": {
+        "specstoryautosave.autoSaveInterval": {
+          "type": "number",
+          "default": 5,
+          "minimum": 1,
+          "maximum": 60,
+          "description": "Auto-save interval in minutes for Copilot chat exports (1-60 minutes)"
+        },
+        "specstoryautosave.enableAutoSave": {
+          "type": "boolean",
+          "default": true,
+          "description": "Enable automatic saving of chat history at regular intervals"
+        },
+        "specstoryautosave.enableAICheckNotifications": {
+          "type": "boolean",
+          "default": true,
+          "description": "Show red notifications to check AI results after each prompt"
+        },
+        "specstoryautosave.enableAutoConfirmDialog": {
+          "type": "boolean",
+          "default": false,
+          "description": "Automatically confirm SpecStory export dialog instead of requiring manual confirmation"
+        },
+        "specstoryautosave.aiNotificationMessage": {
+          "type": "string",
+          "default": "AI prompt detected! Please check:\n• Did AI understand your question correctly?\n• If working with HTML, inspect for invisible elements\n• Verify the response quality and accuracy",
+          "description": "Custom message to display in AI activity notifications"
+        },
+        "specstoryautosave.aiNotificationFrequency": {
+          "type": "number",
+          "default": 1,
+          "minimum": 1,
+          "maximum": 100,
+          "description": "Show AI notification every Nth prompt (1 = every prompt, 2 = every 2nd prompt, etc.)"
+        },
+        "specstoryautosave.detectionLevel": {
+          "type": "string",
+          "enum": ["off", "basic", "advanced", "aggressive"],
+          "default": "aggressive",
+          "description": "AI detection level: off (disabled), basic (command hooks only), advanced (+ panels/patterns), aggressive (+ code/memory detection)",
+          "enumDescriptions": [
+            "No AI detection - extension will not monitor for AI activity",
+            "Basic detection - monitors VS Code commands only (recommended)",
+            "Advanced detection - adds panel focus and content pattern detection",
+            "Aggressive detection - includes code insertion and memory monitoring"
+          ]
+        },
+        "specstoryautosave.enableCommandHookDetection": {
+          "type": "boolean",
+          "default": true,
+          "description": "Enable detection via VS Code command interception (recommended for testing)"
+        },
+        "specstoryautosave.enableWebviewDetection": {
+          "type": "boolean",
+          "default": true,
+          "description": "Enable detection when Copilot Chat webview panels become active (recommended)"
+        },
+        "specstoryautosave.enablePanelFocusDetection": {
+          "type": "boolean",
+          "default": false,
+          "description": "Enable detection based on chat panel focus changes"
+        },
+        "specstoryautosave.enablePatternDetection": {
+          "type": "boolean",
+          "default": false,
+          "description": "Enable detection by scanning document content for AI patterns"
+        },
+        "specstoryautosave.enableCodeInsertionDetection": {
+          "type": "boolean",
+          "default": false,
+          "description": "Enable detection of AI activity based on large code insertions (fallback method)"
+        },
+        "specstoryautosave.enableMemoryDetection": {
+          "type": "boolean",
+          "default": false,
+          "description": "Enable detection based on memory usage spikes (experimental)"
+        },
+        "specstoryautosave.showOnlyCopilotLogs": {
+          "type": "boolean",
+          "default": true,
+          "description": "Show only Copilot/AI related logs in the output channel (filters out other extension logs)"
+        }
+      }
+    }
+  },
+  "scripts": {
+    "vscode:prepublish": "pnpm run compile",
+    "compile": "tsc -p ./",
+    "watch": "tsc -watch -p ./",
+    "pretest": "pnpm run compile && pnpm run lint",
+    "lint": "eslint src",
+    "test": "vscode-test"
+  },
+  "devDependencies": {
+    "@types/vscode": "^1.102.0",
+    "@types/mocha": "^10.0.10",
+    "@types/node": "20.x",
+    "@typescript-eslint/eslint-plugin": "^8.31.1",
+    "@typescript-eslint/parser": "^8.31.1",
+    "eslint": "^9.25.1",
+    "typescript": "^5.8.3",
+    "@vscode/test-cli": "^0.0.11",
+    "@vscode/test-electron": "^2.5.2"
+  },
+  "packageManager": "pnpm@10.10.0+sha512.d615db246fe70f25dcfea6d8d73dee782ce23e2245e3c4f6f888249fb568149318637dca73c2c5c8ef2a4ca0d5657fb9567188bfab47f566d1ee6ce987815c39"
+}

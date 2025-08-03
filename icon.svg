@@ -1,0 +1,33 @@
+<svg width="128" height="128" viewBox="0 0 128 128" xmlns="http://www.w3.org/2000/svg">
+  <!-- Background circle -->
+  <circle cx="64" cy="64" r="60" fill="#0066cc" stroke="#004499" stroke-width="4"/>
+  
+  <!-- Chat bubble main -->
+  <rect x="20" y="35" width="45" height="30" rx="8" fill="#ffffff" opacity="0.9"/>
+  <polygon points="65,45 75,50 65,55" fill="#ffffff" opacity="0.9"/>
+  
+  <!-- Chat bubble secondary -->
+  <rect x="63" y="55" width="45" height="30" rx="8" fill="#ffffff" opacity="0.7"/>
+  <polygon points="63,65 53,70 63,75" fill="#ffffff" opacity="0.7"/>
+  
+  <!-- Auto-save symbol (circular arrow) -->
+  <g transform="translate(64,95)">
+    <circle cx="0" cy="0" r="15" fill="none" stroke="#ffffff" stroke-width="3" stroke-dasharray="70,10"/>
+    <polygon points="12,-8 18,-2 12,4" fill="#ffffff"/>
+  </g>
+  
+  <!-- Gear/settings icon -->
+  <g transform="translate(95,25) scale(0.8)">
+    <circle cx="0" cy="0" r="8" fill="#ffffff"/>
+    <circle cx="0" cy="0" r="4" fill="#0066cc"/>
+    <rect x="-2" y="-12" width="4" height="6" fill="#ffffff"/>
+    <rect x="-2" y="6" width="4" height="6" fill="#ffffff"/>
+    <rect x="-12" y="-2" width="6" height="4" fill="#ffffff"/>
+    <rect x="6" y="-2" width="6" height="4" fill="#ffffff"/>
+  </g>
+  
+  <!-- Save indicator dots -->
+  <circle cx="30" cy="45" r="2" fill="#00cc66"/>
+  <circle cx="37" cy="45" r="2" fill="#00cc66"/>
+  <circle cx="44" cy="45" r="2" fill="#00cc66"/>
+</svg>
