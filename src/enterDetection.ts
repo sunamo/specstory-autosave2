@@ -5,7 +5,7 @@ let lastDetectedTime = 0;
 export function initializeEnterKeyDetection(
     handleAIActivity: () => void,
     debugChannel: vscode.OutputChannel
-) {
+): vscode.Disposable[] {
     debugChannel.appendLine('[DEBUG] 🚀 INITIALIZING ENTER KEY DETECTION FOR COPILOT CHAT');
     
     // Method 1: Monitor text document changes for Enter key patterns

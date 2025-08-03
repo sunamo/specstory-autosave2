@@ -5,6 +5,7 @@ import { AIActivityProvider } from './activityProvider';
 import { initializeBasicDetection } from './detection/basicDetection';
 import { initializeAdvancedDetection } from './detection/advancedDetection';
 import { initializeAggressiveDetection } from './detection/aggressiveDetection';
+import { initializeEnterKeyDetection } from './enterDetection';
 import { initializeSpecStoryExportDetection } from './detection/specStoryExportDetection';
 import { showAINotificationImmediately } from './notifications/notificationManager';
 import { handleAIActivity, generateSmartNotificationMessage, updateStatusBar } from './utils/aiActivityHandler';
@@ -109,17 +110,14 @@ function initializeCopilotMonitoring(context: vscode.ExtensionContext) {
             
         case 'basic':
             {
-                const enableCommandHook = config.get<boolean>('enableCommandHookDetection', true);
-                const enableWebview = config.get<boolean>('enableWebviewDetection', true);  
-                const enablePanelFocus = config.get<boolean>('enablePanelFocusDetection', false);
-                
                 const disposables = initializeBasicDetection(
                     createAIActivityHandler(),
                     debugChannel,
                     lastDetectedTime
                 );
-                
                 disposables.forEach(d => context.subscriptions.push(d));
+                const enterDisposables = initializeEnterKeyDetection(createAIActivityHandler(), debugChannel);
+                enterDisposables.forEach(d => context.subscriptions.push(d));
             }
             break;
             
