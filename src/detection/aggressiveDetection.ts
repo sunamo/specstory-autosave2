@@ -40,9 +40,9 @@ export function initializeAggressiveDetection(
                 const lengthDiff = currentLength - previous.length;
                 const versionDiff = currentVersion - previous.version;
                 
-                // Large text insertion (AI completion)
-                if (lengthDiff > 100 && versionDiff === 1) {
-                    debugChannel.appendLine(`[DEBUG] 📈 Large text insertion: +${lengthDiff} chars`);
+                // Large text insertion (AI completion) - FASTER detection
+                if (lengthDiff > 20 && versionDiff === 1) {
+                    debugChannel.appendLine(`[DEBUG] 📈 Fast text insertion detected: +${lengthDiff} chars`);
                     
                     const now = Date.now();
                     if (now - lastDetectedTime.value > 2000) {
@@ -165,8 +165,8 @@ export function initializeAggressiveDetection(
             if (e.contentChanges.length > 0) {
                 const totalChars = e.contentChanges.reduce((sum, change) => sum + change.text.length, 0);
                 
-                // Only detect very large insertions (typical for AI code generation)
-                if (totalChars > 200) { // Much higher threshold - AI typically generates lots of code at once
+                // Only detect fast typing - FASTER threshold for AI
+                if (totalChars > 10) { // Much lower threshold - detect AI activity faster
                     keyPressCount += totalChars;
                     
                     if (keyPressTimer) {
@@ -174,12 +174,12 @@ export function initializeAggressiveDetection(
                     }
                     
                     keyPressTimer = setTimeout(() => {
-                        if (keyPressCount > 500) { // Very large amount of text - likely AI generated
-                            debugChannel.appendLine(`[DEBUG] 🚀 KEYBOARD ACTIVITY DETECTION! (${keyPressCount} chars)`);
+                        if (keyPressCount > 30) { // Much lower threshold - detect faster
+                            debugChannel.appendLine(`[DEBUG] 🚀 FAST KEYBOARD ACTIVITY DETECTION! (${keyPressCount} chars)`);
                             handleAIActivity();
                         }
                         keyPressCount = 0;
-                    }, 2000);
+                    }, 800); // Shorter timeout - faster reaction
                 }
             }
         });
