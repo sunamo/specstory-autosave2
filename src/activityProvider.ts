@@ -71,7 +71,7 @@ export class AIActivityProvider implements vscode.WebviewViewProvider {
 
             logDebug(`Found SpecStory path: ${specstoryPath}`);
 
-            const conversations = await readRecentSpecStoryConversations(specstoryPath, 15);
+            const conversations = await readRecentSpecStoryConversations(specstoryPath, 1);
             if (!conversations || conversations.length === 0) {
                 logDebug('No conversations found for Activity Bar');
                 return;
@@ -79,50 +79,71 @@ export class AIActivityProvider implements vscode.WebviewViewProvider {
 
             logDebug(`Found ${conversations.length} conversations for Activity Bar`);
 
-            // Transform conversations to prompts with shortened content
-            this._prompts = conversations.map((conv, index) => {
-                const lines = conv.content.split('\n').filter(line => line.trim().length > 0);
+            // Take only the LATEST conversation (most recent file) and extract ALL user prompts from it
+            const latestConversation = conversations[0]; // conversations are already sorted by timestamp desc
+            logDebug(`Processing latest conversation: ${latestConversation.topic}, content length: ${latestConversation.content.length}`);
+            
+            const lines = latestConversation.content.split('\n').filter(line => line.trim().length > 0);
+            logDebug(`Latest conversation has ${lines.length} non-empty lines`);
+
+            // Find ALL user prompts in the latest conversation
+            const userPrompts = [];
+            for (let i = 0; i < lines.length; i++) {
+                const line = lines[i].trim();
+                const lowerLine = line.toLowerCase();
                 
-                logDebug(`Processing conversation ${index + 1}, lines: ${lines.length}, topic: ${conv.topic}`);
-
-                // Find user prompts (multiple patterns to catch different formats)
-                const userLines = lines.filter(line => {
-                    const trimmed = line.trim().toLowerCase();
-                    return trimmed.startsWith('user:') || 
-                           trimmed.startsWith('**user**') ||
-                           trimmed.includes('user:') ||
-                           line.trim().startsWith('User:') ||
-                           (trimmed.length > 10 && 
-                            !trimmed.startsWith('assistant') && 
-                            !trimmed.startsWith('**assistant') &&
-                            !trimmed.startsWith('github copilot'));
-                });
-
-                let shortPrompt = `Prompt #${conversations.length - index}`;
-                if (userLines.length > 0) {
-                    // Take the first meaningful user line
-                    const userLine = userLines[0]
+                // Check if this line is a user prompt
+                if (lowerLine.startsWith('user:') || 
+                    lowerLine.startsWith('**user**') ||
+                    line.startsWith('User:') ||
+                    (lowerLine.includes('user:') && !lowerLine.includes('assistant'))) {
+                    
+                    // Extract the prompt text
+                    let promptText = line
                         .replace(/^.*?user[:\s]*\**/i, '')
                         .replace(/^\*\*/, '')
                         .replace(/^User:\s*/i, '')
                         .trim();
                     
-                    if (userLine.length > 0) {
-                        shortPrompt = userLine.length > 80 ? userLine.substring(0, 80) + '...' : userLine;
-                        logDebug(`Extracted user prompt: "${shortPrompt}"`);
+                    // If the prompt continues on next lines, collect them too
+                    let fullPrompt = promptText;
+                    let nextLineIndex = i + 1;
+                    while (nextLineIndex < lines.length) {
+                        const nextLine = lines[nextLineIndex].trim();
+                        const nextLower = nextLine.toLowerCase();
+                        
+                        // Stop if we hit assistant response or another user prompt
+                        if (nextLower.startsWith('assistant') || 
+                            nextLower.startsWith('**assistant') ||
+                            nextLower.startsWith('github copilot') ||
+                            nextLower.startsWith('user:') ||
+                            nextLower.startsWith('**user**') ||
+                            nextLine.startsWith('User:')) {
+                            break;
+                        }
+                        
+                        // Add this line to the prompt if it's not empty
+                        if (nextLine.length > 0) {
+                            fullPrompt += ' ' + nextLine;
+                        }
+                        nextLineIndex++;
                     }
-                } else {
-                    // Fallback: use conversation topic or first non-empty line
-                    if (conv.topic && conv.topic.trim().length > 0) {
-                        shortPrompt = conv.topic.length > 80 ? conv.topic.substring(0, 80) + '...' : conv.topic;
-                    } else if (lines.length > 0) {
-                        const firstLine = lines[0].trim();
-                        shortPrompt = firstLine.length > 80 ? firstLine.substring(0, 80) + '...' : firstLine;
+                    
+                    if (fullPrompt.length > 0) {
+                        userPrompts.push(fullPrompt);
+                        logDebug(`Found user prompt ${userPrompts.length}: "${fullPrompt.substring(0, 50)}..."`);
                     }
                 }
+            }
 
-                // Use file timestamp if available, otherwise current time with different seconds
-                const timestamp = conv.timestamp || new Date(Date.now() - (index * 1000)).toLocaleTimeString('cs-CZ', { 
+            logDebug(`Extracted ${userPrompts.length} user prompts from latest conversation`);
+
+            // Transform user prompts to display format
+            this._prompts = userPrompts.map((prompt, index) => {
+                const shortPrompt = prompt.length > 120 ? prompt.substring(0, 120) + '...' : prompt;
+                
+                // Generate timestamps in reverse order (newest first) with seconds
+                const timestamp = new Date(Date.now() - (index * 60000)).toLocaleTimeString('cs-CZ', { 
                     hour: '2-digit', 
                     minute: '2-digit', 
                     second: '2-digit' 
@@ -131,7 +152,7 @@ export class AIActivityProvider implements vscode.WebviewViewProvider {
                 return {
                     timestamp: timestamp,
                     shortPrompt: shortPrompt,
-                    fullContent: conv.content
+                    fullContent: prompt
                 };
             });
 
@@ -175,11 +196,8 @@ export class AIActivityProvider implements vscode.WebviewViewProvider {
         const notificationsList = this._prompts.length > 0 
             ? this._prompts.map((prompt, index) => {
                 return `<div class="notification">
-                    <div class="notification-header">
-                        <span class="notification-time">${prompt.timestamp}</span>
-                    </div>
                     <div class="notification-content">
-                        <div class="notification-title">${prompt.shortPrompt}</div>
+                        <div class="notification-title">${prompt.timestamp}: ${prompt.shortPrompt}</div>
                     </div>
                 </div>`;
             }).join('')
