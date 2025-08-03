@@ -417,16 +417,23 @@ function registerCommands(context: vscode.ExtensionContext) {
         debugChannel.appendLine('[DEBUG] 🔧 FORCE TRIGGER: User manually triggered AI notification');
         
         if (realPrompt && realPrompt.length > 0) {
-            // Pokud máme skutečný prompt, přidáme ho přímo do Activity Bar
-            debugChannel.appendLine(`[DEBUG] 🎯 Adding real prompt to Activity Bar: "${realPrompt.substring(0, 100)}..."`);
-            await aiActivityProvider.addNotification(realPrompt);
+            // Pokud máme skutečný prompt, vygenerujeme správnou notifikační zprávu z nastavení
+            debugChannel.appendLine(`[DEBUG] 🎯 Adding real prompt with proper notification message from settings`);
+            
+            // Získáme správnou notifikační zprávu z nastavení
+            const message = await generateSmartNotificationMessage(debugChannel);
+            debugChannel.appendLine(`[DEBUG] 📝 Generated notification message: "${message.substring(0, 100)}..."`);
+            
+            // Přidáme notifikační zprávu do Activity Bar (ne samotný prompt)
+            await aiActivityProvider.addNotification(message);
             
             // Aktualizujeme counter a status bar
             aiPromptCounter.value++;
             lastDetectedTime.value = Date.now();
             updateStatusBar(statusBarItem, aiPromptCounter);
             
-            debugChannel.appendLine(`[DEBUG] ✅ Real prompt added successfully! Counter: ${aiPromptCounter.value}`);
+            debugChannel.appendLine(`[DEBUG] ✅ Real prompt with proper notification message added! Counter: ${aiPromptCounter.value}`);
+            debugChannel.appendLine(`[DEBUG] 🔍 Captured real prompt was: "${realPrompt.substring(0, 100)}..."`);
         } else {
             // Standardní cesta bez reálného promptu
             handleAIActivity(aiPromptCounter, debugChannel, async () => {

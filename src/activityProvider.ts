@@ -8,7 +8,7 @@ import { logDebug, logInfo, logError } from './utils/logger';
 export class AIActivityProvider implements vscode.WebviewViewProvider {
     public static readonly viewType = 'specstoryAINotifications';
     private _view?: vscode.WebviewView;
-    private _prompts: {timestamp: string, shortPrompt: string, fullContent?: string}[] = [];
+    private _prompts: {timestamp: string, shortPrompt: string, fullContent?: string, isManuallyAdded?: boolean}[] = [];
 
     constructor(private readonly _extensionUri: vscode.Uri) {
         // Force create debug log immediately
@@ -25,10 +25,10 @@ export class AIActivityProvider implements vscode.WebviewViewProvider {
         // Multiple loading attempts
         this.initializeWithRetry();
         
-        // Set up periodic refresh every 30 seconds (not every second!)
+        // Set up periodic refresh every 1 minute for better performance
         setInterval(() => {
             this.refreshPrompts();
-        }, 30000);
+        }, 60000);
         
         // Listen for configuration changes and refresh UI immediately
         vscode.workspace.onDidChangeConfiguration((event) => {
@@ -146,11 +146,12 @@ export class AIActivityProvider implements vscode.WebviewViewProvider {
         const newPrompt = {
             timestamp: timestamp,
             shortPrompt: shortPrompt,
-            fullContent: message
+            fullContent: message,
+            isManuallyAdded: true // Flag pro ručně přidané zprávy
         };
         
         this._prompts.unshift(newPrompt);
-        this.writeDebugLog(`Added new prompt: ${shortPrompt}`);
+        this.writeDebugLog(`Added new manual prompt: ${shortPrompt}`);
         
         // Apply max prompts limit
         const config = vscode.workspace.getConfiguration('specstoryautosave');
@@ -306,9 +307,14 @@ export class AIActivityProvider implements vscode.WebviewViewProvider {
                     });
 
                     // Separate current notifikace (non-SpecStory) from SpecStory prompts
-                    // Remove temporary "New AI prompt detected" entries when real SpecStory data is available
+                    // Keep manually added notifications and filter out old temporary entries
                     const currentNotifications = this._prompts.filter(p => {
-                        // Keep entries that are NOT temporary placeholders
+                        // Always keep manually added prompts (they have the isManuallyAdded flag)
+                        if (p.isManuallyAdded) {
+                            return true;
+                        }
+                        
+                        // Remove old temporary "New AI prompt detected" entries when real SpecStory data is available
                         const isTemporary = (p.fullContent && p.fullContent.includes('New AI prompt detected!')) || 
                                           (p.shortPrompt && p.shortPrompt.includes('New AI prompt detected'));
                         
