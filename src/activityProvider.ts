@@ -231,8 +231,9 @@ export class AIActivityProvider implements vscode.WebviewViewProvider {
                             
                             // Extract prompts from this file
                             const filePrompts = this.extractPromptsFromContent(content, fileName);
-                            // Add prompts to the beginning of array to maintain newest-first order
-                            allUserPrompts.unshift(...filePrompts);
+                            // Add prompts to the end of array - since files are sorted newest first,
+                            // this will put newest prompts at the beginning of the final array
+                            allUserPrompts.push(...filePrompts);
                             
                             this.writeDebugLog(`Extracted ${filePrompts.length} prompts from ${fileName}, total so far: ${allUserPrompts.length}`);
                         } catch (fileError) {
