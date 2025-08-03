@@ -23,7 +23,10 @@ export class AIActivityProvider implements vscode.WebviewViewProvider {
             localResourceRoots: [this._extensionUri]
         };
 
-        webviewView.webview.html = this._getHtmlForWebview(webviewView.webview);
+        // Load prompts immediately when webview is created
+        this.loadPromptsFromSpecStory().then(() => {
+            webviewView.webview.html = this._getHtmlForWebview(webviewView.webview);
+        });
 
         webviewView.webview.onDidReceiveMessage(data => {
             switch (data.type) {
@@ -45,50 +48,68 @@ export class AIActivityProvider implements vscode.WebviewViewProvider {
         try {
             const specstoryPath = await findSpecStoryHistoryPath();
             if (!specstoryPath) {
+                console.log('[DEBUG] No SpecStory path found');
                 return;
             }
 
-            const conversations = await readRecentSpecStoryConversations(specstoryPath, 10, undefined as any);
+            const conversations = await readRecentSpecStoryConversations(specstoryPath, 15, undefined as any);
             if (!conversations || conversations.length === 0) {
+                console.log('[DEBUG] No conversations found');
                 return;
             }
+
+            console.log(`[DEBUG] Found ${conversations.length} conversations`);
 
             // Transform conversations to prompts with shortened content
-            this._prompts = conversations.map(conv => {
+            this._prompts = conversations.map((conv, index) => {
                 const lines = conv.content.split('\n');
                 
-                // Find user prompts (lines starting with "User:" or similar)
-                const userLines = lines.filter(line => 
-                    line.trim().toLowerCase().startsWith('user:') || 
-                    line.trim().toLowerCase().startsWith('**user**') ||
-                    line.includes('User:')
-                ).slice(0, 1); // Take first user prompt
+                // Find user prompts (multiple patterns to catch different formats)
+                const userLines = lines.filter(line => {
+                    const trimmed = line.trim().toLowerCase();
+                    return trimmed.startsWith('user:') || 
+                           trimmed.startsWith('**user**') ||
+                           trimmed.includes('user:') ||
+                           (trimmed.length > 10 && !trimmed.startsWith('assistant') && !trimmed.startsWith('**assistant'));
+                });
 
-                let shortPrompt = 'AI activity detected';
+                let shortPrompt = `Prompt #${conversations.length - index}`;
                 if (userLines.length > 0) {
-                    const userLine = userLines[0].replace(/^.*?user[:\s]*\**/i, '').trim();
-                    shortPrompt = userLine.length > 60 ? userLine.substring(0, 60) + '...' : userLine;
+                    // Take the first meaningful user line
+                    const userLine = userLines[0]
+                        .replace(/^.*?user[:\s]*\**/i, '')
+                        .replace(/^\*\*/, '')
+                        .trim();
+                    
+                    if (userLine.length > 0) {
+                        shortPrompt = userLine.length > 80 ? userLine.substring(0, 80) + '...' : userLine;
+                    }
                 }
 
+                // Use file timestamp if available, otherwise current time with different seconds
+                const timestamp = conv.timestamp || new Date(Date.now() - (index * 1000)).toLocaleTimeString('cs-CZ', { 
+                    hour: '2-digit', 
+                    minute: '2-digit', 
+                    second: '2-digit' 
+                });
+
                 return {
-                    timestamp: conv.timestamp || new Date().toLocaleTimeString('cs-CZ', { 
-                        hour: '2-digit', 
-                        minute: '2-digit', 
-                        second: '2-digit' 
-                    }),
+                    timestamp: timestamp,
                     shortPrompt: shortPrompt,
                     fullContent: conv.content
                 };
             });
 
-            // Get max prompts from configuration
+            // Get max prompts from configuration and limit
             const config = vscode.workspace.getConfiguration('specstoryautosave');
             const maxPrompts = config.get<number>('activityBarMaxPrompts', 10);
             
-            // Keep only configured number of prompts
+            // Keep only configured number of prompts (most recent first)
             if (this._prompts.length > maxPrompts) {
                 this._prompts = this._prompts.slice(0, maxPrompts);
             }
+
+            console.log(`[DEBUG] Loaded ${this._prompts.length} prompts for Activity Bar`);
         } catch (error) {
             console.error('Failed to load prompts from SpecStory:', error);
         }
