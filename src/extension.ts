@@ -954,10 +954,10 @@ function generateMessageWithRecentPrompts(conversations: {content: string, topic
         return 'AI prompt detected! Please check:\n• Did AI understand your question correctly?\n• If working with HTML, inspect for invisible elements\n• Verify the response quality and accuracy';
     }
     
-    // Format prompts for display
+    // Format prompts for display with bullet points
     const promptsList = lastPrompts.map((prompt, index) => {
         const shortPrompt = prompt.length > 80 ? prompt.substring(0, 80) + '...' : prompt;
-        return `${index + 1}. ${shortPrompt}`;
+        return `• ${shortPrompt}`;
     }).join('\n');
     
     // Generate context-aware message with recent prompts
@@ -981,8 +981,8 @@ function generateMessageWithRecentPrompts(conversations: {content: string, topic
                 return i18n.t('ai.smartDefault', conversations[0]?.topic || 'code', promptsList);
         }
     } catch (error) {
-        // Fallback if i18n fails
-        return `AI just responded! Check ${contextAnalysis.focus}:\n\n📝 Recent prompts:\n${promptsList}\n\n✅ Check:\n${contextAnalysis.checks}`;
+        // Fallback if i18n fails - use simple formatting without code blocks
+        return `AI just responded! Check ${contextAnalysis.focus}:\n\nRecent prompts:\n${promptsList}\n\nCheck:\n${contextAnalysis.checks}`;
     }
 }
 

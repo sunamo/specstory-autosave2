@@ -38,13 +38,13 @@
     "largeChangeDetected": "SpecStoryAutoSave: Large code change detected - showing control notification",
     "promptCount": "SpecStoryAutoSave: AI prompt count: {0}, notification frequency: {1}",
     "skippingNotification": "SpecStoryAutoSave: Skipping notification (every {0}th prompt, current: {1})",
-    "smartDebug": "AI just debugged! Check debugging:\n\n📝 Recent prompts:\n{0}\n\n✅ Check:\n• Fixed the actual root cause?\n• No new bugs introduced?\n• Test edge cases",
-    "smartUI": "AI worked on UI! Check UI/design:\n\n📝 Recent prompts:\n{0}\n\n✅ Check:\n• Responsive design\n• Accessibility\n• Cross-browser compatibility",
-    "smartDatabase": "AI modified database! Check database:\n\n📝 Recent prompts:\n{0}\n\n✅ Check:\n• Data integrity\n• Performance impact\n• Backup strategy",
-    "smartAPI": "AI created API! Check API:\n\n📝 Recent prompts:\n{0}\n\n✅ Check:\n• Error handling\n• Security\n• API documentation",
-    "smartPerformance": "AI optimized performance! Check performance:\n\n📝 Recent prompts:\n{0}\n\n✅ Check:\n• Actual speedup achieved?\n• Memory leaks?\n• Functionality regression?",
-    "smartSecurity": "AI worked on security! Check security:\n\n📝 Recent prompts:\n{0}\n\n✅ Check:\n• Proper encryption\n• Input validation\n• Security best practices",
-    "smartDefault": "AI worked on \"{0}\"! Check code:\n\n📝 Recent prompts:\n{1}\n\n✅ Check:\n• Meets original requirements?\n• No side effects or breaking changes?\n• Documentation and comments updated?"
+    "smartDebug": "AI just debugged! Check debugging:\n\nRecent prompts:\n{0}\n\nCheck:\n• Fixed the actual root cause?\n• No new bugs introduced?\n• Test edge cases",
+    "smartUI": "AI worked on UI! Check UI/design:\n\nRecent prompts:\n{0}\n\nCheck:\n• Responsive design\n• Accessibility\n• Cross-browser compatibility",
+    "smartDatabase": "AI modified database! Check database:\n\nRecent prompts:\n{0}\n\nCheck:\n• Data integrity\n• Performance impact\n• Backup strategy",
+    "smartAPI": "AI created API! Check API:\n\nRecent prompts:\n{0}\n\nCheck:\n• Error handling\n• Security\n• API documentation",
+    "smartPerformance": "AI optimized performance! Check performance:\n\nRecent prompts:\n{0}\n\nCheck:\n• Actual speedup achieved?\n• Memory leaks?\n• Functionality regression?",
+    "smartSecurity": "AI worked on security! Check security:\n\nRecent prompts:\n{0}\n\nCheck:\n• Proper encryption\n• Input validation\n• Security best practices",
+    "smartDefault": "AI worked on \"{0}\"! Check code:\n\nRecent prompts:\n{1}\n\nCheck:\n• Meets original requirements?\n• No side effects or breaking changes?\n• Documentation and comments updated?"
   },
   "logging": {
     "moduleLoaded": "SpecStoryAutoSave: Module loaded",

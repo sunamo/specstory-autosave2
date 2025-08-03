@@ -1,5 +1,13 @@
 # Changelog
 
+## [1.1.22] - 2025-08-03
+
+### Fixed
+- Fixed notification formatting to use clean bullet points instead of code blocks
+- Removed emoji icons from notification messages for cleaner display
+- Improved prompt list formatting with proper bullet points (•)
+- Enhanced notification readability in VS Code notification system
+
 ## [1.1.21] - 2025-08-03
 
 ### Fixed
