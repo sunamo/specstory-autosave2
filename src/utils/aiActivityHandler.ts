@@ -20,8 +20,21 @@ export function handleAIActivity(
     aiPromptCounter: { value: number },
     debugChannel: vscode.OutputChannel,
     showNotificationCallback: () => Promise<void>,
-    updateStatusBarCallback: () => void
+    updateStatusBarCallback: () => void,
+    lastDetectedTime?: { value: number }
 ) {
+    const now = Date.now();
+    
+    // Debouncing - prevent multiple triggers within 2 seconds
+    if (lastDetectedTime && (now - lastDetectedTime.value < 2000)) {
+        debugChannel.appendLine(`[DEBUG] AI activity ignored - too soon (${now - lastDetectedTime.value}ms since last detection)`);
+        return;
+    }
+    
+    if (lastDetectedTime) {
+        lastDetectedTime.value = now;
+    }
+    
     aiPromptCounter.value++;
     const config = vscode.workspace.getConfiguration('specstoryautosave');
     const enableNotifications = config.get<boolean>('enableAICheckNotifications', true);
@@ -45,7 +58,7 @@ export function handleAIActivity(
 export async function generateSmartNotificationMessage(debugChannel: vscode.OutputChannel): Promise<string> {
     const config = vscode.workspace.getConfiguration('specstoryautosave');
     const customMessage = config.get<string>('aiNotificationMessage', '');
-    const defaultUserMessage = 'AI prompt detected! Please check:\n• Did AI understand your question correctly?\n• If working with HTML, inspect for invisible elements\n• Verify the response quality and accuracy';
+    const defaultUserMessage = 'Please check:\n• Did AI understand your question correctly?\n• If working with HTML, inspect for invisible elements\n• Verify the response quality and accuracy';
     
     // Always start with "New AI prompt detected!" on first line
     const firstLine = 'New AI prompt detected!';

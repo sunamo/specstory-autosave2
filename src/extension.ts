@@ -78,6 +78,14 @@ export function activate(context: vscode.ExtensionContext) {
     debugChannel.appendLine('[DEBUG] All components initialized successfully');
 }
 
+// Create wrapper function for handleAIActivity with proper parameters
+function createAIActivityHandler() {
+    return () => handleAIActivity(aiPromptCounter, debugChannel, async () => {
+        const message = await generateSmartNotificationMessage(debugChannel);
+        await showAINotificationImmediately(message, aiActivityProvider, aiNotificationPanel, debugChannel, countdownTimer);
+    }, () => updateStatusBar(statusBarItem, aiPromptCounter), lastDetectedTime);
+}
+
 function initializeCopilotMonitoring(context: vscode.ExtensionContext) {
     logDebug('🔍 Initializing Copilot monitoring system...');
     
@@ -105,10 +113,7 @@ function initializeCopilotMonitoring(context: vscode.ExtensionContext) {
                 const enablePanelFocus = config.get<boolean>('enablePanelFocusDetection', false);
                 
                 const disposables = initializeBasicDetection(
-                    () => handleAIActivity(aiPromptCounter, debugChannel, async () => {
-                        const message = await generateSmartNotificationMessage(debugChannel);
-                        await showAINotificationImmediately(message, aiActivityProvider, aiNotificationPanel, debugChannel, countdownTimer);
-                    }, () => updateStatusBar(statusBarItem, aiPromptCounter)),
+                    createAIActivityHandler(),
                     debugChannel,
                     lastDetectedTime,
                     enableCommandHook,
@@ -128,10 +133,7 @@ function initializeCopilotMonitoring(context: vscode.ExtensionContext) {
                 const enablePanelFocus = config.get<boolean>('enablePanelFocusDetection', false);
                 
                 const basicDisposables = initializeBasicDetection(
-                    () => handleAIActivity(aiPromptCounter, debugChannel, async () => {
-                        const message = await generateSmartNotificationMessage(debugChannel);
-                        await showAINotificationImmediately(message, aiActivityProvider, aiNotificationPanel, debugChannel, countdownTimer);
-                    }, () => updateStatusBar(statusBarItem, aiPromptCounter)),
+                    createAIActivityHandler(),
                     debugChannel,
                     lastDetectedTime,
                     enableCommandHook,
@@ -141,10 +143,7 @@ function initializeCopilotMonitoring(context: vscode.ExtensionContext) {
                 
                 // Advanced detection
                 const advancedDisposables = initializeAdvancedDetection(
-                    () => handleAIActivity(aiPromptCounter, debugChannel, async () => {
-                        const message = await generateSmartNotificationMessage(debugChannel);
-                        await showAINotificationImmediately(message, aiActivityProvider, aiNotificationPanel, debugChannel, countdownTimer);
-                    }, () => updateStatusBar(statusBarItem, aiPromptCounter)),
+                    createAIActivityHandler(),
                     debugChannel,
                     lastDetectedTime
                 );
@@ -166,10 +165,7 @@ function initializeCopilotMonitoring(context: vscode.ExtensionContext) {
                 const enableKeyboard = config.get<boolean>('enableKeyboardActivityDetection', false);
                 
                 const basicDisposables = initializeBasicDetection(
-                    () => handleAIActivity(aiPromptCounter, debugChannel, async () => {
-                        const message = await generateSmartNotificationMessage(debugChannel);
-                        await showAINotificationImmediately(message, aiActivityProvider, aiNotificationPanel, debugChannel, countdownTimer);
-                    }, () => updateStatusBar(statusBarItem, aiPromptCounter)),
+                    createAIActivityHandler(),
                     debugChannel,
                     lastDetectedTime,
                     enableCommandHook,
@@ -178,19 +174,13 @@ function initializeCopilotMonitoring(context: vscode.ExtensionContext) {
                 );
                 
                 const advancedDisposables = initializeAdvancedDetection(
-                    () => handleAIActivity(aiPromptCounter, debugChannel, async () => {
-                        const message = await generateSmartNotificationMessage(debugChannel);
-                        await showAINotificationImmediately(message, aiActivityProvider, aiNotificationPanel, debugChannel, countdownTimer);
-                    }, () => updateStatusBar(statusBarItem, aiPromptCounter)),
+                    createAIActivityHandler(),
                     debugChannel,
                     lastDetectedTime
                 );
                 
                 const aggressiveDisposables = initializeAggressiveDetection(
-                    () => handleAIActivity(aiPromptCounter, debugChannel, async () => {
-                        const message = await generateSmartNotificationMessage(debugChannel);
-                        await showAINotificationImmediately(message, aiActivityProvider, aiNotificationPanel, debugChannel, countdownTimer);
-                    }, () => updateStatusBar(statusBarItem, aiPromptCounter)),
+                    createAIActivityHandler(),
                     debugChannel,
                     lastDetectedTime,
                     enableCodeInsertion,
@@ -248,7 +238,7 @@ function initializeSpecStoryMonitoring(context: vscode.ExtensionContext) {
                 handleAIActivity(aiPromptCounter, debugChannel, async () => {
                     const message = `SpecStory history with AI conversation detected!\n\nFile: ${document.fileName}\n\nPlease verify the AI responses are accurate and complete.`;
                     await showAINotificationImmediately(message, aiActivityProvider, aiNotificationPanel, debugChannel, countdownTimer);
-                }, () => updateStatusBar(statusBarItem, aiPromptCounter));
+                }, () => updateStatusBar(statusBarItem, aiPromptCounter), lastDetectedTime);
             } else {
                 logDebug('📄 SpecStory file opened but no clear AI conversation patterns detected');
             }
@@ -283,7 +273,7 @@ function initializeSpecStoryMonitoring(context: vscode.ExtensionContext) {
                         handleAIActivity(aiPromptCounter, debugChannel, async () => {
                             const message = `SpecStory file updated with new AI content!\n\nFile: ${event.document.fileName}\nChanges: ${totalChanges} characters\n\nNew AI responses detected - please review for accuracy.`;
                             await showAINotificationImmediately(message, aiActivityProvider, aiNotificationPanel, debugChannel, countdownTimer);
-                        }, () => updateStatusBar(statusBarItem, aiPromptCounter));
+                        }, () => updateStatusBar(statusBarItem, aiPromptCounter), lastDetectedTime);
                     }
                 }
             }
@@ -312,7 +302,7 @@ function initializeSpecStoryMonitoring(context: vscode.ExtensionContext) {
                     handleAIActivity(aiPromptCounter, debugChannel, async () => {
                         const message = `Recent SpecStory activity detected!\n\nFile: ${editor.document.fileName}\nModified: ${stats.mtime.toLocaleString()}\n\nPlease check the latest AI responses.`;
                         await showAINotificationImmediately(message, aiActivityProvider, aiNotificationPanel, debugChannel, countdownTimer);
-                    }, () => updateStatusBar(statusBarItem, aiPromptCounter));
+                    }, () => updateStatusBar(statusBarItem, aiPromptCounter), lastDetectedTime);
                 }
             }
         }
@@ -409,7 +399,7 @@ function registerCommands(context: vscode.ExtensionContext) {
         handleAIActivity(aiPromptCounter, debugChannel, async () => {
             const message = await generateSmartNotificationMessage(debugChannel);
             await showAINotificationImmediately(message, aiActivityProvider, aiNotificationPanel, debugChannel, countdownTimer);
-        }, () => updateStatusBar(statusBarItem, aiPromptCounter));
+        }, () => updateStatusBar(statusBarItem, aiPromptCounter), lastDetectedTime);
     });
 
     // Register show prompt stats command
@@ -452,7 +442,7 @@ function registerCommands(context: vscode.ExtensionContext) {
             handleAIActivity(aiPromptCounter, debugChannel, async () => {
                 const message = await generateSmartNotificationMessage(debugChannel);
                 await showAINotificationImmediately(message, aiActivityProvider, aiNotificationPanel, debugChannel, countdownTimer);
-            }, () => updateStatusBar(statusBarItem, aiPromptCounter));
+            }, () => updateStatusBar(statusBarItem, aiPromptCounter), lastDetectedTime);
             
             vscode.window.showInformationMessage('SpecStory history detection test completed - check output for details');
         } catch (error) {
