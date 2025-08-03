@@ -7,8 +7,6 @@ let copilotOutputChannel: vscode.OutputChannel | undefined;
 let aiPromptCounter = 0;
 let lastDetectedTime = 0;
 let countdownTimer: NodeJS.Timeout | undefined;
-let promptHistory: string[] = [];
-const MAX_PROMPT_HISTORY = 1000;
 
 export function activate(context: vscode.ExtensionContext) {
     // Create output channels
@@ -133,14 +131,10 @@ export function activate(context: vscode.ExtensionContext) {
     const resetCounter = vscode.commands.registerCommand('specstoryautosave.resetPromptCounter', () => {
         aiPromptCounter = 0;
         lastDetectedTime = 0;
-        promptHistory = []; // Also clear prompt history
         updateStatusBar();
         debugChannel.appendLine('[DEBUG] AI prompt counter reset to 0');
-        vscode.window.showInformationMessage('AI prompt counter and history reset');
+        vscode.window.showInformationMessage('AI prompt counter reset to 0');
     });
-
-    // Register export prompt history command
-    const exportPrompts = vscode.commands.registerCommand('specstoryautosave.exportPromptHistory', exportPromptHistory);
 
     // Add commands to context
     context.subscriptions.push(findSpecStoryCommands);
@@ -152,7 +146,6 @@ export function activate(context: vscode.ExtensionContext) {
     context.subscriptions.push(testCopilotDetection);
     context.subscriptions.push(showPromptStats);
     context.subscriptions.push(resetCounter);
-    context.subscriptions.push(exportPrompts);
     context.subscriptions.push(outputChannel);
     context.subscriptions.push(debugChannel);
     
@@ -711,12 +704,11 @@ function handleAIActivity() {
     debugChannel.appendLine(`[DEBUG] AI activity detected! Counter: ${aiPromptCounter}`);
     debugChannel.appendLine(`[DEBUG] Notifications enabled: ${enableNotifications}, Frequency: ${frequency}`);
     
-    // Log this prompt activity
-    logPromptActivity('AI Detection', `Prompt #${aiPromptCounter}`);
-    
     if (enableNotifications && (aiPromptCounter % frequency === 0)) {
         debugChannel.appendLine(`[DEBUG] Will show notification (counter ${aiPromptCounter} matches frequency ${frequency})`);
-        showAINotificationImmediately();
+        showAINotificationImmediately().catch((error) => {
+            debugChannel.appendLine(`[DEBUG] Error showing notification: ${error}`);
+        });
     } else {
         debugChannel.appendLine(`[DEBUG] Notification skipped - notifications: ${enableNotifications}, counter: ${aiPromptCounter}, frequency: ${frequency}`);
     }
@@ -724,19 +716,155 @@ function handleAIActivity() {
     updateStatusBar();
 }
 
-function showAINotificationImmediately() {
+async function generateSmartNotificationMessage(): Promise<string> {
     const config = vscode.workspace.getConfiguration('specstoryautosave');
+    const enableSmartNotifications = config.get<boolean>('enableSmartNotifications', true);
+    const customMessage = config.get<string>('aiNotificationMessage', '');
     const defaultMessage = 'AI prompt detected! Please check:\n• Did AI understand your question correctly?\n• If working with HTML, inspect for invisible elements\n• Verify the response quality and accuracy';
-    let message = config.get<string>('aiNotificationMessage', defaultMessage);
     
-    // Ensure message is not empty and has proper content
-    if (!message || message.trim().length === 0) {
-        message = defaultMessage;
+    // If user has custom message or smart notifications are disabled, use their message or default
+    if (!enableSmartNotifications || customMessage !== defaultMessage) {
+        return customMessage || defaultMessage;
     }
     
+    try {
+        // Try to find SpecStory history folder
+        const specstoryPath = await findSpecStoryHistoryPath();
+        if (!specstoryPath) {
+            debugChannel.appendLine('[DEBUG] No SpecStory history found, using default message');
+            return defaultMessage;
+        }
+        
+        // Read latest SpecStory conversation
+        const latestConversation = await readLatestSpecStoryConversation(specstoryPath);
+        if (!latestConversation) {
+            debugChannel.appendLine('[DEBUG] No recent conversations found, using default message');
+            return defaultMessage;
+        }
+        
+        // Generate context-aware message
+        const smartMessage = generateContextAwareMessage(latestConversation);
+        debugChannel.appendLine(`[DEBUG] Generated smart message based on: ${latestConversation.topic}`);
+        return smartMessage;
+        
+    } catch (error) {
+        debugChannel.appendLine(`[DEBUG] Error generating smart message: ${error}`);
+        return defaultMessage;
+    }
+}
+
+async function findSpecStoryHistoryPath(): Promise<string | null> {
+    const config = vscode.workspace.getConfiguration('specstoryautosave');
+    const customPath = config.get<string>('specstoryHistoryPath', '');
+    
+    if (customPath) {
+        debugChannel.appendLine(`[DEBUG] Using custom SpecStory path: ${customPath}`);
+        return customPath;
+    }
+    
+    // Auto-detect SpecStory folder in workspace
+    const workspaceFolders = vscode.workspace.workspaceFolders;
+    if (!workspaceFolders) {
+        return null;
+    }
+    
+    for (const folder of workspaceFolders) {
+        const specstoryPath = vscode.Uri.joinPath(folder.uri, '.specstory', 'history');
+        try {
+            const stat = await vscode.workspace.fs.stat(specstoryPath);
+            if (stat.type === vscode.FileType.Directory) {
+                debugChannel.appendLine(`[DEBUG] Found SpecStory history at: ${specstoryPath.fsPath}`);
+                return specstoryPath.fsPath;
+            }
+        } catch {
+            // Directory doesn't exist, continue searching
+        }
+    }
+    
+    return null;
+}
+
+async function readLatestSpecStoryConversation(historyPath: string): Promise<{content: string, topic: string, timestamp: string} | null> {
+    try {
+        const historyUri = vscode.Uri.file(historyPath);
+        const files = await vscode.workspace.fs.readDirectory(historyUri);
+        
+        // Filter only .md files and sort by name (which includes timestamp)
+        const mdFiles = files
+            .filter(([name, type]) => name.endsWith('.md') && type === vscode.FileType.File)
+            .map(([name]) => name)
+            .sort()
+            .reverse(); // Latest first
+        
+        if (mdFiles.length === 0) {
+            return null;
+        }
+        
+        // Read the latest file
+        const latestFile = mdFiles[0];
+        const fileUri = vscode.Uri.joinPath(historyUri, latestFile);
+        const fileContent = await vscode.workspace.fs.readFile(fileUri);
+        const content = Buffer.from(fileContent).toString('utf8');
+        
+        // Extract topic from filename: 2025-08-03_07-59Z-user-greeting-and-request-for-assistance.md
+        const topicMatch = latestFile.match(/\d{4}-\d{2}-\d{2}_\d{2}-\d{2}Z-(.+)\.md$/);
+        const topic = topicMatch ? topicMatch[1].replace(/-/g, ' ') : 'conversation';
+        
+        // Extract timestamp
+        const timestampMatch = latestFile.match(/(\d{4}-\d{2}-\d{2}_\d{2}-\d{2}Z)/);
+        const timestamp = timestampMatch ? timestampMatch[1] : '';
+        
+        return { content, topic, timestamp };
+        
+    } catch (error) {
+        debugChannel.appendLine(`[DEBUG] Error reading SpecStory conversation: ${error}`);
+        return null;
+    }
+}
+
+function generateContextAwareMessage(conversation: {content: string, topic: string, timestamp: string}): string {
+    const content = conversation.content.toLowerCase();
+    const topic = conversation.topic.toLowerCase();
+    
+    // Analyze content for different contexts
+    if (content.includes('debug') || content.includes('error') || content.includes('bug') || content.includes('fix')) {
+        return 'AI právě debugoval! Zkontroluj:\n• Opravil skutečnou příčinu problému?\n• Nezavedl nové bugy?\n• Testuj edge cases a boundary conditions';
+    }
+    
+    if (content.includes('html') || content.includes('css') || content.includes('style') || content.includes('design') || content.includes('responsive')) {
+        return 'AI pracoval s UI! Zkontroluj:\n• Responzivní design na různých zařízeních\n• Accessibility (ARIA, contrast, keyboard navigation)\n• Cross-browser kompatibilita';
+    }
+    
+    if (content.includes('database') || content.includes('sql') || content.includes('query') || content.includes('table')) {
+        return 'AI upravoval databázi! Zkontroluj:\n• Data integrity a constraints\n• Performance impact na velká data\n• Backup strategie před změnami';
+    }
+    
+    if (content.includes('api') || content.includes('endpoint') || content.includes('request') || content.includes('response')) {
+        return 'AI vytvořil API! Zkontroluj:\n• Error handling pro všechny edge cases\n• Security (authentication, authorization)\n• API dokumentace a testování';
+    }
+    
+    if (content.includes('performance') || content.includes('optimize') || content.includes('slow') || content.includes('speed')) {
+        return 'AI optimalizoval performance! Zkontroluj:\n• Skutečné zrychlení (měření před/po)\n• Memory leaks a resource usage\n• Nedošlo k regresi funkcjonality';
+    }
+    
+    if (content.includes('security') || content.includes('auth') || content.includes('login') || content.includes('password')) {
+        return 'AI pracoval se security! Zkontroluj:\n• Proper encryption a hashing\n• Input validation a sanitization\n• Security best practices dodrženy';
+    }
+    
+    if (content.includes('test') || content.includes('unit') || content.includes('integration')) {
+        return 'AI vytvořil testy! Zkontroluj:\n• Test coverage skutečně důležitých částí\n• Edge cases a error scenarios\n• Testy jsou maintainable a čitelné';
+    }
+    
+    // Default smart message based on topic
+    return `AI pracoval na "${conversation.topic}"! Zkontroluj:\n• Kód splňuje původní požadavky?\n• Nezavedl side effects nebo breaking changes?\n• Dokumentace a komentáře jsou aktuální`;
+}
+
+async function showAINotificationImmediately() {
     debugChannel.appendLine('[DEBUG] Showing AI notification immediately');
-    debugChannel.appendLine(`[DEBUG] Message length: ${message.length}`);
-    debugChannel.appendLine(`[DEBUG] Message content: "${message}"`);
+    
+    // Generate smart message
+    const message = await generateSmartNotificationMessage();
+    debugChannel.appendLine(`[DEBUG] Message: ${message}`);
     
     // Clear any existing countdown
     if (countdownTimer) {
@@ -792,58 +920,6 @@ function updateStatusBar() {
         statusBarItem.text = `$(robot) AI: ${aiPromptCounter}`;
         statusBarItem.backgroundColor = undefined;
         statusBarItem.show();
-    }
-}
-
-function logPromptActivity(detectionMethod: string, context?: string) {
-    const timestamp = new Date().toISOString().substring(0, 19).replace('T', ' ');
-    let promptSummary = `${detectionMethod}`;
-    
-    if (context) {
-        // Extract first 50 characters as prompt summary
-        const shortContext = context.substring(0, 50).replace(/\n/g, ' ').trim();
-        promptSummary += ` - ${shortContext}...`;
-    }
-    
-    const logEntry = `${timestamp} - ${promptSummary}`;
-    promptHistory.push(logEntry);
-    
-    // Keep only last 1000 entries
-    if (promptHistory.length > MAX_PROMPT_HISTORY) {
-        promptHistory = promptHistory.slice(-MAX_PROMPT_HISTORY);
-    }
-    
-    debugChannel.appendLine(`[PROMPT-LOG] ${logEntry}`);
-}
-
-async function exportPromptHistory() {
-    if (promptHistory.length === 0) {
-        vscode.window.showInformationMessage('No prompts recorded yet.');
-        return;
-    }
-    
-    const workspaceFolder = vscode.workspace.workspaceFolders?.[0];
-    if (!workspaceFolder) {
-        vscode.window.showErrorMessage('No workspace folder found for export.');
-        return;
-    }
-    
-    const exportPath = vscode.Uri.joinPath(workspaceFolder.uri, 'prompts-history.txt');
-    const content = [
-        `# AI Prompts History - Generated ${new Date().toISOString()}`,
-        `# Total prompts recorded: ${promptHistory.length}`,
-        '',
-        ...promptHistory
-    ].join('\n');
-    
-    try {
-        await vscode.workspace.fs.writeFile(exportPath, Buffer.from(content, 'utf8'));
-        vscode.window.showInformationMessage(`Prompt history exported to: ${exportPath.fsPath}`);
-        // Open the file
-        const document = await vscode.workspace.openTextDocument(exportPath);
-        vscode.window.showTextDocument(document);
-    } catch (error) {
-        vscode.window.showErrorMessage(`Failed to export prompt history: ${error}`);
     }
 }
 

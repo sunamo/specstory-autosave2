@@ -2,7 +2,7 @@
   "name": "specstory-autosave",
   "displayName": "SpecStory AutoSave + AI Copilot Prompt Detection",
   "description": "Auto-exports GitHub Copilot Chat to SpecStory documentation + instant AI prompt detection with quality verification notifications",
-  "version": "1.1.8",
+  "version": "1.1.9",
   "publisher": "sunamocz",
   "icon": "icon.png",
   "repository": {
@@ -136,6 +136,16 @@
           "type": "string",
           "default": "AI prompt detected! Please check:\n• Did AI understand your question correctly?\n• If working with HTML, inspect for invisible elements\n• Verify the response quality and accuracy",
           "description": "Custom message to display in AI activity notifications"
+        },
+        "specstoryautosave.enableSmartNotifications": {
+          "type": "boolean",
+          "default": true,
+          "description": "Enable smart notifications based on SpecStory conversation analysis (uses context-aware messages)"
+        },
+        "specstoryautosave.specstoryHistoryPath": {
+          "type": "string",
+          "default": "",
+          "description": "Path to SpecStory history folder (e.g., C:\\Proj_Net\\portal-ui\\.specstory\\history\\). Leave empty for auto-detection."
         },
         "specstoryautosave.aiNotificationFrequency": {
           "type": "number",

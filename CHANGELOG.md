@@ -1,5 +1,27 @@
 # Chan# Changelog
 
+## [1.1.9] - 2025-08-03
+### Added
+- **🤖 Chytré notifikace** - analýza SpecStory konverzací pro kontextové hlášky
+- **📁 SpecStory integrace** - čte `.specstory/history/` složky pro kontext
+- **⚙️ Nová nastavení**:
+  - `enableSmartNotifications` - zapne/vypne chytré hlášky
+  - `specstoryHistoryPath` - vlastní cesta k SpecStory historii
+
+### Features
+- **Kontextové hlášky** podle typu AI práce:
+  - Debugging: "AI právě debugoval! Zkontroluj skutečnou příčinu..."
+  - UI/HTML/CSS: "AI pracoval s UI! Zkontroluj responzivní design..."
+  - Database: "AI upravoval databázi! Zkontroluj data integrity..."
+  - API: "AI vytvořil API! Zkontroluj error handling..."
+  - Performance: "AI optimalizoval! Zkontroluj skutečné zrychlení..."
+  - Security: "AI pracoval se security! Zkontroluj encryption..."
+
+### Technical
+- Auto-detekce `.specstory/history/` ve workspace
+- Fallback na výchozí zprávu při chybách
+- Respektuje uživatelské vlastní zprávy
+
 ## [1.1.8] - 2025-08-03
 ### Analysis
 - Analyzován správný formát SpecStory exportů z `C:\Proj_Net\portal-ui\.specstory\history\`
