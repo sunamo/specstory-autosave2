@@ -52,21 +52,25 @@ export function initializeBasicDetection(
     
     // ADD GLOBAL DEBOUNCE MECHANISM to prevent duplicate detections
     let lastGlobalDetection = 0;
-    const DEBOUNCE_MS = 200; // Reduced from 1000ms to 200ms for faster response
+    let lastDetectionSource = '';
+    const DEBOUNCE_MS = 1500; // Increased to 1.5 seconds to prevent all duplicates
     
-    const debouncedHandleAIActivity = () => {
+    const debouncedHandleAIActivity = (source = 'unknown') => {
         const now = Date.now();
-        if (now - lastGlobalDetection > DEBOUNCE_MS) {
+        const timeSinceLastDetection = now - lastGlobalDetection;
+        
+        if (timeSinceLastDetection > DEBOUNCE_MS) {
             lastGlobalDetection = now;
-            logDebug(`🎯 DETECTION ALLOWED (${now - lastGlobalDetection}ms since last)`);
+            lastDetectionSource = source;
+            logDebug(`🎯 DETECTION ALLOWED from [${source}] - ${timeSinceLastDetection}ms since last [${lastDetectionSource}]`);
             handleAIActivity();
         } else {
-            logDebug(`🛑 DETECTION BLOCKED by debounce (${now - lastGlobalDetection}ms ago, need ${DEBOUNCE_MS}ms)`);
+            logDebug(`🛑 DETECTION BLOCKED from [${source}] - only ${timeSinceLastDetection}ms ago from [${lastDetectionSource}] (need ${DEBOUNCE_MS}ms)`);
         }
     };
     
     // NEW: SpecStory file monitoring for immediate detection
-    const specstoryWatcher = initializeSpecStoryWatcher(debouncedHandleAIActivity, debugChannel);
+    const specstoryWatcher = initializeSpecStoryWatcher(() => debouncedHandleAIActivity('SpecStory-File'), debugChannel);
     if (specstoryWatcher) {
         disposables.push(specstoryWatcher);
     }
@@ -79,7 +83,7 @@ export function initializeBasicDetection(
             event.affectsConfiguration('github.copilot')) {
             logDebug('⚙️ COPILOT CONFIGURATION CHANGE DETECTED!');
             logAIActivity('AI activity detected via configuration change');
-            debouncedHandleAIActivity();
+            debouncedHandleAIActivity('Config-Change');
         }
     });
     disposables.push(disposableUniversal);
@@ -104,7 +108,7 @@ export function initializeBasicDetection(
                 // Remove timing restriction for immediate response
                 logDebug('🚀 ENHANCED WEBVIEW DETECTION!');
                 logAIActivity('AI activity detected via webview panel activation');
-                debouncedHandleAIActivity();
+                debouncedHandleAIActivity('Webview-Panel');
             }
         });
         disposables.push(disposable1);
@@ -124,7 +128,7 @@ export function initializeBasicDetection(
             if (hasCopilotEditor) {
                 logDebug(`🎯 COPILOT ACTIVITY VIA VISIBLE EDITORS`);
                 logAIActivity(`Copilot activity detected via visible editors`);
-                debouncedHandleAIActivity();
+                debouncedHandleAIActivity('Visible-Editors');
             }
         });
         disposables.push(disposable1b);
