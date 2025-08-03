@@ -2,7 +2,7 @@
   "name": "specstory-autosave",
   "displayName": "SpecStory AutoSave + AI Copilot Prompt Detection",
   "description": "Auto-exports GitHub Copilot Chat to SpecStory documentation + instant AI prompt detection with quality verification notifications",
-  	"version": "1.1.55",
+  	"version": "1.1.56",
   "publisher": "sunamocz",
   "icon": "icon.png",
   "repository": {
@@ -133,49 +133,27 @@
     "configuration": {
       "title": "SpecStoryAutoSave",
       "properties": {
-        "specstoryautosave.autoSaveInterval": {
-          "type": "number",
-          "default": 5,
-          "minimum": 1,
-          "maximum": 60,
-          "description": "Auto-save interval in minutes for Copilot chat exports (1-60 minutes)"
-        },
-        "specstoryautosave.enableAutoSave": {
-          "type": "boolean",
-          "default": true,
-          "description": "Enable automatic saving of chat history at regular intervals"
-        },
         "specstoryautosave.enableAICheckNotifications": {
           "type": "boolean",
           "default": true,
-          "description": "Show red notifications to check AI results after each prompt"
-        },
-        "specstoryautosave.enableAutoConfirmDialog": {
-          "type": "boolean",
-          "default": false,
-          "description": "Automatically confirm SpecStory export dialog instead of requiring manual confirmation"
+          "description": "Show notifications to check AI results after each prompt"
         },
         "specstoryautosave.aiNotificationMessage": {
           "type": "string",
           "default": "AI prompt detected! Please check:\n• Did AI understand your question correctly?\n• If working with HTML, inspect for invisible elements\n• Verify the response quality and accuracy",
-          "description": "Custom message to display in AI activity notifications"
-        },
-        "specstoryautosave.enableSmartNotifications": {
-          "type": "boolean",
-          "default": true,
-          "description": "Enable smart notifications based on SpecStory conversation analysis (uses context-aware messages)"
+          "description": "Custom message to display in AI activity notifications (only applied when Activity Bar display is not available)"
         },
         "specstoryautosave.specstoryHistoryPath": {
           "type": "string",
           "default": "",
-          "description": "Path to SpecStory history folder (e.g., C:\\Proj_Net\\portal-ui\\.specstory\\history\\). Leave empty for auto-detection."
+          "description": "Path to SpecStory history folder (e.g., project-root\\.specstory\\history\\). Leave empty for auto-detection which will search common project structures."
         },
         "specstoryautosave.aiNotificationFrequency": {
           "type": "number",
           "default": 1,
           "minimum": 1,
           "maximum": 100,
-          "description": "Show AI notification every Nth prompt (1 = every prompt, 2 = every 2nd prompt, etc.)"
+          "description": "Show AI notification every Nth prompt - 1 = every prompt, 2 = every 2nd prompt, etc. (only applied when Activity Bar display is not available)"
         },
         "specstoryautosave.detectionLevel": {
           "type": "string",
@@ -246,13 +224,14 @@
         },
         "specstoryautosave.notificationDisplayType": {
           "type": "string",
-          "enum": ["notification", "panel", "activitybar"],
+          "enum": ["off", "notification", "panel", "activitybar"],
           "default": "activitybar",
-          "description": "Choose how to display AI activity notifications: 'notification' for VS Code popup, 'panel' for webview panel, 'activitybar' for dedicated activity bar view",
+          "description": "Choose how to display AI activity notifications: 'off' completely disables all Copilot prompt notifications, 'notification' for simple VS Code popup messages, 'panel' for detailed webview panels with formatting, 'activitybar' switches to extension's Activity Bar view after each prompt",
           "enumDescriptions": [
-            "Show simple popup notifications (single line only)",
-            "Show detailed webview panels with formatting and buttons",
-            "Show in dedicated activity bar view with persistent history"
+            "Completely disable all AI prompt notifications and Activity Bar switching",
+            "Show simple popup notifications (single line messages only)",
+            "Show detailed webview panels with rich formatting and action buttons",
+            "Switch to extension's Activity Bar view automatically after each prompt (recommended)"
           ]
         },
         "specstoryautosave.activityBarMaxPrompts": {

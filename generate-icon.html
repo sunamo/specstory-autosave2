@@ -1,4 +1,14 @@
-<svg width="128" height="128" viewBox="0 0 128 128" xmlns="http://www.w3.org/2000/svg">
+<!DOCTYPE html>
+<html>
+<head>
+    <title>SVG to Canvas Converter</title>
+</head>
+<body>
+    <canvas id="canvas" width="128" height="128"></canvas>
+    <div id="download-link"></div>
+    
+    <script>
+        const svgString = `<svg width="128" height="128" viewBox="0 0 128 128" xmlns="http://www.w3.org/2000/svg">
   <!-- Background circle with VS Code Activity Bar compatible color -->
   <circle cx="64" cy="64" r="58" fill="none" stroke="#858585" stroke-width="3" opacity="0.8"/>
   
@@ -38,4 +48,36 @@
   <!-- Notification badge (small indicator) -->
   <circle cx="90" cy="45" r="4" fill="#858585" opacity="0.8"/>
   <text x="90" y="48" text-anchor="middle" font-family="Arial, sans-serif" font-size="6" fill="white">!</text>
-</svg>
+</svg>`;
+
+        const canvas = document.getElementById('canvas');
+        const ctx = canvas.getContext('2d');
+        
+        const img = new Image();
+        const svg = new Blob([svgString], {type: 'image/svg+xml;charset=utf-8'});
+        const url = URL.createObjectURL(svg);
+        
+        img.onload = function() {
+            ctx.drawImage(img, 0, 0);
+            URL.revokeObjectURL(url);
+            
+            // Convert to PNG and create download link
+            canvas.toBlob(function(blob) {
+                const link = document.createElement('a');
+                link.download = 'icon.png';
+                link.href = URL.createObjectURL(blob);
+                link.textContent = 'Download PNG';
+                link.style.fontSize = '20px';
+                link.style.padding = '10px';
+                link.style.display = 'block';
+                document.getElementById('download-link').appendChild(link);
+                
+                // Auto-click to download
+                link.click();
+            });
+        };
+        
+        img.src = url;
+    </script>
+</body>
+</html>

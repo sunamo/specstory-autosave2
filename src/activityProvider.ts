@@ -30,6 +30,25 @@ export class AIActivityProvider implements vscode.WebviewViewProvider {
             this.refreshPrompts();
         }, 30000);
         
+        // Listen for configuration changes and refresh UI immediately
+        vscode.workspace.onDidChangeConfiguration((event) => {
+            if (event.affectsConfiguration('specstoryautosave.activityBarMaxPrompts')) {
+                this.writeDebugLog('Configuration changed: activityBarMaxPrompts - refreshing UI');
+                logInfo('Configuration changed: activityBarMaxPrompts - refreshing UI');
+                
+                // Apply new limit to existing prompts
+                const config = vscode.workspace.getConfiguration('specstoryautosave');
+                const maxPrompts = config.get<number>('activityBarMaxPrompts', 10);
+                
+                if (this._prompts.length > maxPrompts) {
+                    this._prompts = this._prompts.slice(0, maxPrompts);
+                    this.writeDebugLog(`Applied new limit: reduced to ${this._prompts.length} prompts`);
+                }
+                
+                this._updateView();
+            }
+        });
+        
         this.writeDebugLog('=== ACTIVITY BAR CONSTRUCTOR FINISHED ===');
     }
 
@@ -129,29 +148,26 @@ export class AIActivityProvider implements vscode.WebviewViewProvider {
             let specstoryPath = await findSpecStoryHistoryPath();
             
             if (!specstoryPath) {
-                this.writeDebugLog('Primary path detection failed, trying alternative methods...');
-                logDebug('Primary path detection failed, trying alternative methods...');
+                this.writeDebugLog('Primary path detection failed, trying workspace search...');
+                logDebug('Primary path detection failed, trying workspace search...');
                 
-                // Try hardcoded common paths
-                const commonPaths = [
-                    'C:\\Proj_Net\\portal-ui\\.specstory\\history',
-                    'C:\\Proj_Net\\.specstory\\history',
-                    'E:\\vs\\.specstory\\history'
-                ];
-                
-                for (const path of commonPaths) {
-                    try {
-                        const testUri = vscode.Uri.file(path);
-                        const stat = await vscode.workspace.fs.stat(testUri);
-                        if (stat.type === vscode.FileType.Directory) {
-                            specstoryPath = path;
-                            this.writeDebugLog(`Found SpecStory using hardcoded path: ${path}`);
-                            logDebug(`Found SpecStory using hardcoded path: ${path}`);
-                            break;
+                // Search for .specstory/history in workspace folders
+                const workspaceFolders = vscode.workspace.workspaceFolders;
+                if (workspaceFolders) {
+                    for (const folder of workspaceFolders) {
+                        const specstoryDir = vscode.Uri.joinPath(folder.uri, '.specstory', 'history');
+                        try {
+                            const stat = await vscode.workspace.fs.stat(specstoryDir);
+                            if (stat.type === vscode.FileType.Directory) {
+                                specstoryPath = specstoryDir.fsPath;
+                                this.writeDebugLog(`Found SpecStory in workspace: ${specstoryPath}`);
+                                logDebug(`Found SpecStory in workspace: ${specstoryPath}`);
+                                break;
+                            }
+                        } catch {
+                            this.writeDebugLog(`Workspace path not found: ${specstoryDir.fsPath}`);
+                            logDebug(`Workspace path not found: ${specstoryDir.fsPath}`);
                         }
-                    } catch {
-                        this.writeDebugLog(`Hardcoded path not found: ${path}`);
-                        logDebug(`Hardcoded path not found: ${path}`);
                     }
                 }
             }
@@ -402,7 +418,8 @@ export class AIActivityProvider implements vscode.WebviewViewProvider {
             try {
                 const fs = require('fs');
                 const path = require('path');
-                const altLogFile = path.join('C:\\temp', 'specstory-debug.log');
+                const os = require('os');
+                const altLogFile = path.join(os.tmpdir(), 'specstory-debug.log');
                 fs.appendFileSync(altLogFile, logEntry);
             } catch (altError) {
                 console.log(`DEBUG FILE FAILED: ${error}, ALT FAILED: ${altError}`);

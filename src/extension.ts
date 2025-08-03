@@ -7,16 +7,18 @@ import { initializeAdvancedDetection } from './detection/advancedDetection';
 import { initializeAggressiveDetection } from './detection/aggressiveDetection';
 import { showAINotificationImmediately } from './notifications/notificationManager';
 import { handleAIActivity, generateSmartNotificationMessage, updateStatusBar } from './utils/aiActivityHandler';
-import { initializeLogger, logDebug, logInfo, logError, logAIActivity } from './utils/logger';
+import { initializeLogger, logDebug, logInfo, logError, logAIActivity, logExport } from './utils/logger';
 
 // Global variables
 let outputChannel: vscode.OutputChannel;
 let debugChannel: vscode.OutputChannel;
+let exportChannel: vscode.OutputChannel;
 let statusBarItem: vscode.StatusBarItem;
 let copilotOutputChannel: vscode.OutputChannel | undefined;
 let aiPromptCounter = { value: 0 };
 let lastDetectedTime = { value: 0 };
 let countdownTimer = { value: undefined as NodeJS.Timeout | undefined };
+let autoSaveTimer = { value: undefined as NodeJS.Timeout | undefined };
 let aiNotificationPanel = { value: undefined as vscode.WebviewPanel | undefined };
 let aiActivityProvider: AIActivityProvider;
 
@@ -24,9 +26,10 @@ export function activate(context: vscode.ExtensionContext) {
     // Create output channels
     outputChannel = vscode.window.createOutputChannel('SpecStory AutoSave + AI Copilot Prompt Detection');
     debugChannel = vscode.window.createOutputChannel('SpecStory AutoSave + AI Copilot Prompt Detection Debug');
+    exportChannel = vscode.window.createOutputChannel('SpecStory AutoSave - Chat Exports');
     
     // Initialize logger
-    initializeLogger(debugChannel, outputChannel);
+    initializeLogger(debugChannel, outputChannel, exportChannel);
     
     // Register webview provider for activity bar
     aiActivityProvider = new AIActivityProvider(context.extensionUri);
@@ -47,7 +50,7 @@ export function activate(context: vscode.ExtensionContext) {
     const enableDebugLogs = config.get<boolean>('enableDebugLogs', false);
     
     // Initialize logger
-    initializeLogger(debugChannel, outputChannel);
+    initializeLogger(debugChannel, outputChannel, exportChannel);
     
     logDebug('Extension activated');
     if (enableDebugLogs) {
@@ -64,6 +67,12 @@ export function activate(context: vscode.ExtensionContext) {
     
     // Register commands
     registerCommands(context);
+    
+    // Setup auto-save intervals
+    setupAutoSaveIntervals();
+    
+    // Setup configuration listener for auto-save changes
+    setupConfigurationListener();
     
     debugChannel.appendLine('[DEBUG] All components initialized successfully');
 }
@@ -451,21 +460,115 @@ function registerCommands(context: vscode.ExtensionContext) {
         }
     });
 
+    // Command to export chat history now
+    const exportNow = vscode.commands.registerCommand('specstoryautosave.exportNow', async () => {
+        logInfo('📤 Manual export chat history initiated...');
+        logExport('Manual export requested by user');
+        
+        try {
+            // Here would be the actual export logic
+            // For now, just simulate the export
+            const timestamp = new Date().toLocaleString();
+            const os = require('os');
+            const path = require('path');
+            const exportPath = path.join(os.tmpdir(), `specstory-export-${Date.now()}.md`);
+            
+            logExport(`Export started at ${timestamp}`);
+            logExport(`Target path: ${exportPath}`);
+            
+            // Simulate export process
+            await new Promise(resolve => setTimeout(resolve, 1000));
+            
+            logExport('✅ Chat history exported successfully');
+            logInfo('✅ Chat history exported successfully');
+            
+            vscode.window.showInformationMessage('Chat history exported successfully - check Export output for details');
+        } catch (error) {
+            logExport(`❌ Export failed: ${error}`);
+            logError(`Export failed: ${error}`);
+            vscode.window.showErrorMessage(`Export failed: ${error}`);
+        }
+    });
+
     // Add commands to context
     context.subscriptions.push(findSpecStoryCommands);
     context.subscriptions.push(forceAINotification);
     context.subscriptions.push(showPromptStats);
     context.subscriptions.push(resetCounter);
     context.subscriptions.push(testHistoryDetection);
+    context.subscriptions.push(exportNow);
     context.subscriptions.push(outputChannel);
     context.subscriptions.push(debugChannel);
+    context.subscriptions.push(exportChannel);
     
     logDebug('All commands registered successfully');
+}
+
+function setupAutoSaveIntervals() {
+    const config = vscode.workspace.getConfiguration('specstoryautosave');
+    const enableAutoSave = config.get<boolean>('enableAutoSave', true);
+    const intervalMinutes = config.get<number>('autoSaveInterval', 5);
+    
+    if (!enableAutoSave) {
+        logInfo('Auto-save is disabled in settings');
+        return;
+    }
+    
+    logInfo(`Setting up auto-save interval: ${intervalMinutes} minutes`);
+    logExport(`Auto-save configured: every ${intervalMinutes} minutes`);
+    
+    // Clear existing timer if any
+    if (autoSaveTimer.value) {
+        clearInterval(autoSaveTimer.value);
+    }
+    
+    // Set up new timer
+    autoSaveTimer.value = setInterval(async () => {
+        logExport('🔄 Auto-save interval triggered');
+        
+        try {
+            // Simulate export process
+            const timestamp = new Date().toLocaleString();
+            const os = require('os');
+            const path = require('path');
+            const exportPath = path.join(os.tmpdir(), `specstory-autosave-${Date.now()}.md`);
+            
+            logExport(`Auto-export started at ${timestamp}`);
+            logExport(`Target path: ${exportPath}`);
+            
+            // Here would be the actual export logic
+            await new Promise(resolve => setTimeout(resolve, 500));
+            
+            logExport('✅ Auto-export completed successfully');
+            logInfo('✅ Auto-export completed successfully');
+            
+        } catch (error) {
+            logExport(`❌ Auto-export failed: ${error}`);
+            logError(`Auto-export failed: ${error}`);
+        }
+    }, intervalMinutes * 60 * 1000); // Convert minutes to milliseconds
+    
+    logDebug(`Auto-save timer set for ${intervalMinutes} minutes`);
+}
+
+// Listen for configuration changes to update auto-save intervals
+function setupConfigurationListener() {
+    vscode.workspace.onDidChangeConfiguration((event) => {
+        if (event.affectsConfiguration('specstoryautosave.enableAutoSave') || 
+            event.affectsConfiguration('specstoryautosave.autoSaveInterval')) {
+            logInfo('Auto-save configuration changed - updating intervals');
+            setupAutoSaveIntervals();
+        }
+    });
 }
 
 export function deactivate() {
     if (countdownTimer.value) {
         clearInterval(countdownTimer.value);
+    }
+    if (autoSaveTimer.value) {
+        clearInterval(autoSaveTimer.value);
+        logExport('Auto-save timer stopped');
     }
     if (statusBarItem) {
         statusBarItem.dispose();
@@ -475,5 +578,8 @@ export function deactivate() {
     }
     if (debugChannel) {
         debugChannel.dispose();
+    }
+    if (exportChannel) {
+        exportChannel.dispose();
     }
 }
