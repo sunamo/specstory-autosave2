@@ -66,7 +66,7 @@ export async function generateSmartNotificationMessage(debugChannel: vscode.Outp
         }
         
         // Read latest 10 SpecStory conversations to get more prompts
-        const recentConversations = await readRecentSpecStoryConversations(specstoryPath, 10, debugChannel);
+        const recentConversations = await readRecentSpecStoryConversations(specstoryPath, 10);
         if (!recentConversations || recentConversations.length === 0) {
             debugChannel.appendLine('[DEBUG] No recent conversations found, using default message');
             return defaultMessage;

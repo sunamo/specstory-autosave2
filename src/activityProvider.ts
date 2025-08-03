@@ -71,7 +71,7 @@ export class AIActivityProvider implements vscode.WebviewViewProvider {
 
             logDebug(`Found SpecStory path: ${specstoryPath}`);
 
-            const conversations = await readRecentSpecStoryConversations(specstoryPath, 15, undefined as any);
+            const conversations = await readRecentSpecStoryConversations(specstoryPath, 15);
             if (!conversations || conversations.length === 0) {
                 logDebug('No conversations found for Activity Bar');
                 return;
