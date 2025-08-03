@@ -19,6 +19,22 @@
 
 # Changelog
 
+## [1.1.17] - 2025-08-03
+### Fixed
+- **Last 3 prompts bug** - fixed incorrect logic that showed wrong prompts (5,6,7 instead of 15,16,17)
+- **Prompt parsing logic** - changed from `unshift` + `slice(0,3)` to `push` + `slice(-3)` for correct chronological order
+- **Debug logging** - added extensive debug logging to track prompt extraction process
+
+### Changed
+- **Better debugging** - extension now logs each step of prompt extraction to debug channel
+- **Correct prompt selection** - now properly selects the actual last 3 user prompts from SpecStory files
+- **Fixed slice logic** - `slice(-3)` now correctly gets the most recent prompts
+
+### Technical
+- Fixed bug where `unshift(...conversationPrompts)` + `slice(0,3)` returned oldest prompts instead of newest
+- Added debug output showing file processing, prompt count, and selected prompts
+- Now correctly shows prompts 15, 16, 17 instead of 5, 6, 7 for the user's SpecStory file
+
 ## [1.1.16] - 2025-08-03
 ### Fixed
 - **SpecStory integration debug** - investigated issue with not displaying last 3 prompts from SpecStory file

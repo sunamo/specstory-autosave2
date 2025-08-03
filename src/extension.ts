@@ -840,8 +840,12 @@ function generateMessageWithRecentPrompts(conversations: {content: string, topic
     for (const conversation of conversations) {
         const content = conversation.content;
         
+        // Debug: log file being processed
+        debugChannel.appendLine(`[DEBUG] Processing file: ${conversation.topic} (${conversation.timestamp})`);
+        
         // Split by _**User**_ to find user messages
         const userMessages = content.split('_**User**_');
+        debugChannel.appendLine(`[DEBUG] Found ${userMessages.length - 1} user messages in file`);
         
         for (let i = 1; i < userMessages.length; i++) { // Skip first split (before first user message)
             const userPart = userMessages[i];
@@ -857,12 +861,22 @@ function generateMessageWithRecentPrompts(conversations: {content: string, topic
             
             if (cleanText && cleanText.length > 10) { // Only meaningful prompts
                 recentPrompts.push(cleanText);
+                // Debug: log each prompt as it's added
+                debugChannel.appendLine(`[DEBUG] Added prompt ${recentPrompts.length}: ${cleanText.substring(0, 50)}...`);
             }
         }
     }
     
-    // Take last 3 prompts
+    debugChannel.appendLine(`[DEBUG] Total prompts collected: ${recentPrompts.length}`);
+    
+    // Take last 3 prompts (most recent)
     const lastPrompts = recentPrompts.slice(-3);
+    debugChannel.appendLine(`[DEBUG] Selected last 3 prompts for display`);
+    
+    // Debug: log the selected prompts
+    lastPrompts.forEach((prompt, index) => {
+        debugChannel.appendLine(`[DEBUG] Selected prompt ${index + 1}: ${prompt.substring(0, 50)}...`);
+    });
     
     if (lastPrompts.length === 0) {
         return 'AI prompt detected! Please check:\n• Did AI understand your question correctly?\n• If working with HTML, inspect for invisible elements\n• Verify the response quality and accuracy';
