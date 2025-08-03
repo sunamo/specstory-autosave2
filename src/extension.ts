@@ -500,6 +500,40 @@ function registerCommands(context: vscode.ExtensionContext) {
         }
     });
 
+    // Simple test command for Enter detection
+    const testEnterDetection = vscode.commands.registerCommand('specstoryautosave.testEnterDetection', () => {
+        debugChannel.appendLine('🔍 === SIMPLE ENTER DETECTION TEST ===');
+        const activeEditor = vscode.window.activeTextEditor;
+        if (activeEditor) {
+            debugChannel.appendLine(`Current editor scheme: ${activeEditor.document.uri.scheme}`);
+            debugChannel.appendLine(`Language: ${activeEditor.document.languageId}`);
+            debugChannel.appendLine(`Is Copilot Chat: ${activeEditor.document.uri.scheme === 'chat-editing-snapshot-text-model'}`);
+        } else {
+            debugChannel.appendLine('No active editor');
+        }
+        
+        vscode.window.showInformationMessage('Enter detection test logged to output panel');
+    });
+
+    // Debug command for testing advanced detection
+    const debugAdvancedDetection = vscode.commands.registerCommand('specstoryautosave.debugAdvancedDetection', () => {
+        debugChannel.appendLine('🔍 === ADVANCED DETECTION DEBUG ===');
+        debugChannel.appendLine(`Last activity detected: ${aiPromptCounter} prompts total`);
+        debugChannel.appendLine(`Current editor: ${vscode.window.activeTextEditor?.document.uri.scheme || 'none'}`);
+        debugChannel.appendLine(`Language: ${vscode.window.activeTextEditor?.document.languageId || 'none'}`);
+        debugChannel.appendLine(`Path: ${vscode.window.activeTextEditor?.document.uri.path || 'none'}`);
+        
+        // Show available chat commands
+        vscode.commands.getCommands(true).then(commands => {
+            const chatCommands = commands.filter(cmd => 
+                cmd.includes('chat') || cmd.includes('copilot') || cmd.includes('interactive')
+            ).slice(0, 10); // Show first 10
+            debugChannel.appendLine(`Chat commands found: ${chatCommands.join(', ')}`);
+        });
+        
+        vscode.window.showInformationMessage('Advanced detection debug info logged to output panel');
+    });
+
     // Add commands to context
     context.subscriptions.push(findSpecStoryCommands);
     context.subscriptions.push(forceAINotification);
@@ -507,6 +541,8 @@ function registerCommands(context: vscode.ExtensionContext) {
     context.subscriptions.push(resetCounter);
     context.subscriptions.push(testHistoryDetection);
     context.subscriptions.push(exportNow);
+    context.subscriptions.push(testEnterDetection);
+    context.subscriptions.push(debugAdvancedDetection);
     context.subscriptions.push(outputChannel);
     context.subscriptions.push(debugChannel);
     context.subscriptions.push(exportChannel);

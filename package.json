@@ -2,7 +2,7 @@
   "name": "specstory-autosave",
   "displayName": "SpecStory AutoSave + AI Copilot Prompt Detection",
   "description": "Auto-exports GitHub Copilot Chat to SpecStory documentation + instant AI prompt detection with quality verification notifications",
-  	"version": "1.1.134",
+  	"version": "1.1.135",
   "publisher": "sunamocz",
   "icon": "icon.png",
   "repository": {
@@ -98,6 +98,14 @@
       {
         "command": "specstoryautosave.testHistoryDetection",
         "title": "SpecStory AutoSave + AI Copilot Prompt Detection: Test SpecStory History Detection"
+      },
+      {
+        "command": "specstoryautosave.testEnterDetection",
+        "title": "SpecStory AutoSave + AI Copilot Prompt Detection: Test Simple Enter Detection"
+      },
+      {
+        "command": "specstoryautosave.debugAdvancedDetection",
+        "title": "SpecStory AutoSave + AI Copilot Prompt Detection: Debug Advanced Detection (Source Code Based)"
       }
     ],
     "keybindings": [

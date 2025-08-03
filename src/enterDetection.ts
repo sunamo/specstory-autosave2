@@ -1,107 +1,84 @@
 import * as vscode from 'vscode';
 
-let lastDetectedTime = 0;
-
 export function initializeEnterKeyDetection(
     handleAIActivity: () => void,
     debugChannel: vscode.OutputChannel
 ): vscode.Disposable[] {
-    debugChannel.appendLine('🚀 Copilot Chat command detection ready');
+    debugChannel.appendLine('🚀 Simple Enter key detection for Copilot Chat');
     
     // Check Copilot availability
     const copilotExt = vscode.extensions.getExtension('github.copilot');
     const copilotChatExt = vscode.extensions.getExtension('github.copilot-chat');
-    if (copilotExt && copilotChatExt) {
-        debugChannel.appendLine('✅ Copilot extensions found');
-    } else {
+    if (!copilotExt || !copilotChatExt) {
         debugChannel.appendLine('❌ Missing Copilot extensions');
         return [];
     }
     
-    // Method 1: Listen to chat submit commands directly
-    const chatCommandListener = vscode.commands.registerCommand('workbench.action.chat.submit', (...args) => {
-        const now = Date.now();
-        if (now - lastDetectedTime > 200) {
-            lastDetectedTime = now;
-            debugChannel.appendLine('🚀 COPILOT SUBMIT COMMAND DETECTED!');
-            handleAIActivity();
+    debugChannel.appendLine(`✅ Copilot extensions found`);
+
+    // Method 1: Simple text document change monitoring
+    // Detekce na základě změn v chat dokumentech
+    const textChangeListener = vscode.workspace.onDidChangeTextDocument((event) => {
+        const uri = event.document.uri;
+        const scheme = uri.scheme;
+        
+        // Skip náš vlastní output
+        if (uri.toString().includes('SpecStoryAutoSave')) {
+            return;
         }
-        // Continue with original command
-        return vscode.commands.executeCommand('workbench.action.chat.submit.original', ...args);
-    });
-    
-    // Method 2: Listen to various chat-related commands
-    const chatCommands = [
-        'workbench.action.chat.submit',
-        'workbench.action.chat.submitSecondaryAgent',
-        'chat.action.submit',
-        'interactive.acceptInput',
-        'workbench.action.interactiveSession.submit'
-    ];
-    
-    const commandListeners: vscode.Disposable[] = [];
-    
-    chatCommands.forEach(command => {
-        try {
-            const listener = vscode.commands.registerCommand(command + '.copilot-detector', (...args) => {
-                const now = Date.now();
-                if (now - lastDetectedTime > 100) {
-                    lastDetectedTime = now;
-                    debugChannel.appendLine(`🚀 COPILOT COMMAND: ${command}`);
+        
+        // Pouze pro Copilot Chat scheme
+        if (scheme === 'chat-editing-snapshot-text-model') {
+            const currentText = event.document.getText();
+            
+            for (const change of event.contentChanges) {
+                // Detekce odeslání zprávy = značné zmenšení textu nebo úplné vymazání
+                const isMessageSent = (
+                    // Úplné vymazání textu
+                    (change.text === '' && change.rangeLength > 5) ||
+                    // Nebo značné zmenšenie (>70% textu zmizelo)
+                    (currentText.length < event.document.getText().length * 0.3 && change.rangeLength > 10)
+                );
+                
+                if (isMessageSent) {
+                    debugChannel.appendLine(`🚀 Copilot message sent! (text change: -${change.rangeLength} chars)`);
                     handleAIActivity();
+                    break;
                 }
-            });
-            commandListeners.push(listener);
-        } catch (error) {
-            // Command might not exist - ignore
+            }
         }
     });
-    
-    // Method 3: Monitor VS Code window focus and activity
-    const windowListener = vscode.window.onDidChangeWindowState(state => {
-        if (state.focused) {
-            // When window regains focus, check for recent activity
+
+    // Method 2: Key binding monitoring
+    // Přímé zachytávání Enter klávesy pouze v Copilot Chat kontextu
+    const keyListener = vscode.commands.registerCommand('type', (args) => {
+        const activeEditor = vscode.window.activeTextEditor;
+        
+        if (activeEditor && 
+            activeEditor.document.uri.scheme === 'chat-editing-snapshot-text-model' &&
+            args && args.text === '\n') {
+            
+            debugChannel.appendLine(`⚡ Enter pressed in Copilot Chat!`);
+            
+            // Malé zpoždění aby se zpráva stihla odeslat
             setTimeout(() => {
-                const activeEditor = vscode.window.activeTextEditor;
-                if (activeEditor) {
-                    const scheme = activeEditor.document.uri.scheme;
-                    if (scheme === 'chat-editing-snapshot-text-model') {
-                        debugChannel.appendLine('� Window focus with Copilot chat active');
-                    }
-                }
+                handleAIActivity();
             }, 100);
         }
+        
+        // KRITICKÉ: Předáváme příkaz dál, aby se nezablokoval normální typing
+        return vscode.commands.executeCommand('default:type', args);
     });
-    
-    // Method 4: Monitor all available commands for chat patterns
-    const allCommandsMonitor = setInterval(async () => {
-        try {
-            const commands = await vscode.commands.getCommands(true);
-            const chatCommands = commands.filter(cmd => 
-                cmd.includes('chat') || 
-                cmd.includes('copilot') || 
-                cmd.includes('interactive')
-            );
-            
-            // Log periodically for debugging
-            if (Math.random() < 0.01) { // 1% chance
-                debugChannel.appendLine(`📊 Found ${chatCommands.length} chat-related commands`);
-            }
-        } catch (error) {
-            // Ignore errors
+
+    // Method 3: Active editor change monitoring
+    // Detekce kdy se uživatel přepne do Copilot Chat
+    const editorChangeListener = vscode.window.onDidChangeActiveTextEditor(editor => {
+        if (editor && editor.document.uri.scheme === 'chat-editing-snapshot-text-model') {
+            debugChannel.appendLine(`📝 Switched to Copilot Chat editor`);
         }
-    }, 5000);
-    
-    const allCommandsDisposable = new vscode.Disposable(() => {
-        clearInterval(allCommandsMonitor);
     });
+
+    debugChannel.appendLine('✅ Simple Enter detection active (3 methods)');
     
-    debugChannel.appendLine('✅ Multi-method Copilot detection active');
-    
-    return [
-        chatCommandListener,
-        ...commandListeners,
-        windowListener,
-        allCommandsDisposable
-    ];
+    return [textChangeListener, keyListener, editorChangeListener];
 }
