@@ -2,10 +2,27 @@
 Write-Host "SpecStory AutoSave - Build, Release & Install Script" -ForegroundColor Green
 Write-Host "===================================================" -ForegroundColor Green
 
-# Get current version from package.json
+# Get current version from package.json and increment it
 $packageJson = Get-Content "package.json" | ConvertFrom-Json
 $currentVersion = $packageJson.version
 Write-Host "Current version: $currentVersion" -ForegroundColor Cyan
+
+# Parse version and increment patch number
+$versionParts = $currentVersion.Split('.')
+$major = [int]$versionParts[0]
+$minor = [int]$versionParts[1]
+$patch = [int]$versionParts[2]
+$patch++
+$newVersion = "$major.$minor.$patch"
+
+Write-Host "Incrementing version to: $newVersion" -ForegroundColor Yellow
+
+# Update package.json with new version
+$packageContent = Get-Content "package.json" -Raw
+$packageContent = $packageContent -replace "`"version`": `"$currentVersion`"", "`"version`": `"$newVersion`""
+Set-Content "package.json" $packageContent -NoNewline
+
+Write-Host "✅ Version updated in package.json" -ForegroundColor Green
 
 # Clean up old VSIX files first
 Write-Host "1. Cleaning old VSIX files..." -ForegroundColor Yellow
@@ -38,7 +55,7 @@ if ($LASTEXITCODE -ne 0) {
     exit 1
 }
 
-git commit -m "v$currentVersion"
+git commit -m "v$newVersion"
 if ($LASTEXITCODE -ne 0) {
     Write-Host "❌ Git commit failed!" -ForegroundColor Red
     exit 1
@@ -53,7 +70,7 @@ Write-Host "   ✅ Git commit and push completed" -ForegroundColor Green
 
 # Create VSIX package with current version name
 Write-Host "4. Creating VSIX package..." -ForegroundColor Yellow
-$vsixName = "specstory-autosave-$currentVersion.vsix"
+$vsixName = "specstory-autosave-$newVersion.vsix"
 vsce package --allow-star-activation --out $vsixName 2>$null
 if ($LASTEXITCODE -ne 0) {
     Write-Host "❌ VSIX creation failed!" -ForegroundColor Red
@@ -77,7 +94,7 @@ if ($result.ExitCode -eq 0) {
     Write-Host "📝 Please restart VS Code Insiders to see the new version" -ForegroundColor Cyan
     Write-Host "🤖 Status bar will show: AI: [count] (no version number)" -ForegroundColor Cyan
     Write-Host "📋 Test with Ctrl+Shift+A or Enter in Copilot Chat" -ForegroundColor Cyan
-    Write-Host "🔖 Version: $currentVersion" -ForegroundColor Cyan
+    Write-Host "🔖 Version: $newVersion" -ForegroundColor Cyan
 } else {
     Write-Host "❌ Installation failed!" -ForegroundColor Red
 }
