@@ -22,20 +22,67 @@ export function initializeEnterKeyDetection(handleAIActivity: () => void, debugC
     const cmd = vscode.commands.registerCommand("specstoryautosave.interceptEnter", async () => {
         debugChannel.appendLine("🎯 ENTER INTERCEPTED - Processing...");
         
-        // STEP 1: Zachytit SKUTEČNÝ text z Copilot Chat inputu
+        // STEP 1: Zachytit SKUTEČNÝ text z Copilot Chat inputu pomocí různých metod
         let realUserPrompt = "";
         try {
+            // Method 1: Try to get from active text document
             const activeEditor = vscode.window.activeTextEditor;
             if (activeEditor) {
                 const document = activeEditor.document;
                 const uri = document.uri.toString();
+                const scheme = document.uri.scheme;
                 
-                // Pokud je to chat input (untitled nebo chat-related)
-                if (uri.includes('untitled') || uri.includes('chat') || uri.includes('copilot')) {
-                    realUserPrompt = document.getText().trim();
-                    debugChannel.appendLine(`📝 REAL PROMPT captured: "${realUserPrompt.substring(0, 100)}${realUserPrompt.length > 100 ? '...' : ''}"`);
+                debugChannel.appendLine(`🔍 Active document: ${scheme} - ${uri}`);
+                
+                // Copilot Chat používá různé schemes
+                if (scheme === 'chat-editing-snapshot-text-model' || 
+                    scheme === 'untitled' || 
+                    scheme === 'copilot' ||
+                    uri.includes('chat') || 
+                    uri.includes('copilot') ||
+                    uri.includes('untitled')) {
+                    
+                    const text = document.getText().trim();
+                    if (text && text.length > 0) {
+                        realUserPrompt = text;
+                        debugChannel.appendLine(`📝 METHOD 1 SUCCESS - Document text: "${realUserPrompt.substring(0, 100)}${realUserPrompt.length > 100 ? '...' : ''}"`);
+                    }
                 }
             }
+            
+            // Method 2: Try to get from clipboard if document failed
+            if (!realUserPrompt || realUserPrompt.length === 0) {
+                try {
+                    const clipboardText = await vscode.env.clipboard.readText();
+                    if (clipboardText && clipboardText.trim().length > 0 && clipboardText.trim().length < 2000) {
+                        realUserPrompt = clipboardText.trim();
+                        debugChannel.appendLine(`📋 METHOD 2 SUCCESS - Clipboard text: "${realUserPrompt.substring(0, 100)}${realUserPrompt.length > 100 ? '...' : ''}"`);
+                    }
+                } catch (clipError) {
+                    debugChannel.appendLine(`⚠️ Clipboard access failed: ${clipError}`);
+                }
+            }
+            
+            // Method 3: Try to get text from all visible text editors
+            if (!realUserPrompt || realUserPrompt.length === 0) {
+                const visibleEditors = vscode.window.visibleTextEditors;
+                for (const editor of visibleEditors) {
+                    const scheme = editor.document.uri.scheme;
+                    const text = editor.document.getText().trim();
+                    
+                    debugChannel.appendLine(`� Checking visible editor: ${scheme} - text length: ${text.length}`);
+                    
+                    if (text && text.length > 0 && text.length < 2000 && 
+                        (scheme === 'chat-editing-snapshot-text-model' ||
+                         scheme === 'untitled' ||
+                         scheme === 'copilot')) {
+                        realUserPrompt = text;
+                        debugChannel.appendLine(`📝 METHOD 3 SUCCESS - Visible editor: "${realUserPrompt.substring(0, 100)}${realUserPrompt.length > 100 ? '...' : ''}"`);
+                        break;
+                    }
+                }
+            }
+            
         } catch (error) {
             debugChannel.appendLine(`⚠️ Error capturing real prompt: ${error}`);
         }
@@ -49,19 +96,25 @@ export function initializeEnterKeyDetection(handleAIActivity: () => void, debugC
             
             debugChannel.appendLine(`🎯 REAL PROMPT PROCESSING COMPLETED!`);
         } else {
-            debugChannel.appendLine(`⚠️ No real prompt captured - will use standard detection`);
+            debugChannel.appendLine(`⚠️ No real prompt captured - using fallback with test prompt`);
             
-            // Fallback na standardní detekci, pokud se nepodaří zachytit prompt
+            // Fallback with test prompt to verify activity bar functionality
+            const testPrompt = "Test prompt captured from Enter key interception";
+            await addRealPromptToActivityBar(testPrompt, debugChannel);
+            
+            // Also trigger standard detection
             handleAIActivity();
         }
         
-        // STEP 3: Forward to Copilot Chat
-        try {
-            await vscode.commands.executeCommand("workbench.action.chat.submit");
-            debugChannel.appendLine("✅ Successfully forwarded to Copilot Chat");
-        } catch (error) {
-            debugChannel.appendLine(`⚠️ Error forwarding to Copilot: ${error}`);
-        }
+        // STEP 3: Forward to Copilot Chat (delayed to allow text capture)
+        setTimeout(async () => {
+            try {
+                await vscode.commands.executeCommand("workbench.action.chat.submit");
+                debugChannel.appendLine("✅ Successfully forwarded to Copilot Chat");
+            } catch (error) {
+                debugChannel.appendLine(`⚠️ Error forwarding to Copilot: ${error}`);
+            }
+        }, 50); // Small delay to ensure text capture happens first
         
         debugChannel.appendLine("🔄 Real prompt processing completed");
     });
