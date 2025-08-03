@@ -1,15 +1,47 @@
 import * as vscode from 'vscode';
 
 let lastDetectedTime = 0;
+let isInCopilotChat = false;
+let lastTextLength = 0;
 
 export function initializeEnterKeyDetection(
     handleAIActivity: () => void,
     debugChannel: vscode.OutputChannel
 ): vscode.Disposable[] {
-    debugChannel.appendLine('[DEBUG] 🚀 INITIALIZING ENTER KEY DETECTION FOR COPILOT CHAT');
+    debugChannel.appendLine('[DEBUG] 🚀 INITIALIZING SIMPLE COPILOT ENTER DETECTION');
     
-    // Method 1: Monitor text document changes for Enter key patterns
+    // Method 1: Track when user is in Copilot Chat
+    const editorChangeListener = vscode.window.onDidChangeActiveTextEditor((editor) => {
+        if (!editor) {
+            isInCopilotChat = false;
+            return;
+        }
+        
+        const uri = editor.document.uri.toString();
+        const scheme = editor.document.uri.scheme;
+        
+        // Detect Copilot Chat
+        const isCopilotChat = scheme === 'webview-panel' && 
+                             (uri.includes('copilot') || uri.includes('chat') || uri.includes('github-copilot'));
+        
+        if (isCopilotChat !== isInCopilotChat) {
+            isInCopilotChat = isCopilotChat;
+            if (isInCopilotChat) {
+                debugChannel.appendLine('[DEBUG] 🎯 USER ENTERED COPILOT CHAT - Detection active');
+                lastTextLength = 0; // Reset text tracking
+            } else {
+                debugChannel.appendLine('[DEBUG] 📤 USER LEFT COPILOT CHAT - Detection paused');
+            }
+        }
+    });
+    
+    // Method 2: Simple text change detection - only when in Copilot Chat
     const textChangeListener = vscode.workspace.onDidChangeTextDocument((event) => {
+        // Only detect when user is in Copilot Chat
+        if (!isInCopilotChat) {
+            return;
+        }
+        
         const uri = event.document.uri.toString();
         const scheme = event.document.uri.scheme;
         
@@ -18,67 +50,40 @@ export function initializeEnterKeyDetection(
             return;
         }
         
-        // Focus on webview panels (where Copilot Chat runs)
+        // Only process Copilot Chat related documents
         if (scheme === 'webview-panel' || uri.includes('copilot') || uri.includes('chat')) {
-            debugChannel.appendLine(`[DEBUG] 📝 Text change in chat panel: ${uri.substring(0, 60)}...`);
-            
             if (event.contentChanges.length > 0) {
-                const changes = event.contentChanges;
-                let messageWasSent = false;
+                const currentTextLength = event.document.getText().length;
                 
-                changes.forEach(change => {
+                event.contentChanges.forEach(change => {
                     const newText = change.text;
+                    const isTextCleared = (newText.length === 0 && change.rangeLength > 10);
+                    const isSignificantDecrease = (currentTextLength < lastTextLength - 5);
                     
-                    // Detect patterns that indicate message was sent
-                    if (newText.includes('User:') || 
-                        newText.includes('You:') ||
-                        (newText.length === 0 && change.rangeLength > 5)) { // Text cleared after sending
-                        messageWasSent = true;
-                        debugChannel.appendLine(`[DEBUG] 🎯 MESSAGE SENT PATTERN DETECTED!`);
+                    // Simple detection: text was cleared or significantly reduced (message sent)
+                    if (isTextCleared || isSignificantDecrease) {
+                        const now = Date.now();
+                        if (now - lastDetectedTime > 1000) { // 1 second debounce
+                            lastDetectedTime = now;
+                            debugChannel.appendLine(`[DEBUG] 🚀 COPILOT MESSAGE SENT DETECTED! (text cleared: ${isTextCleared}, text reduced: ${isSignificantDecrease})`);
+                            handleAIActivity();
+                        }
+                    }
+                    
+                    // Track text changes for message detection
+                    if (newText.length > 0) {
+                        debugChannel.appendLine(`[DEBUG] � Text in Copilot: "${newText.substring(0, 20)}..." (len: ${currentTextLength})`);
                     }
                 });
                 
-                if (messageWasSent) {
-                    const now = Date.now();
-                    if (now - lastDetectedTime > 1000) {
-                        lastDetectedTime = now;
-                        debugChannel.appendLine('[DEBUG] 🚀 ENTER KEY DETECTION - MESSAGE SENT!');
-                        handleAIActivity();
-                    }
-                }
+                lastTextLength = currentTextLength;
             }
         }
     });
     
-    // Method 2: Removed - was conflicting with Method 1
-    // We rely on Method 1 for proper message detection
-    
-    // Method 3: Monitor when chat panel becomes active (user switched to it)
-    const editorChangeListener = vscode.window.onDidChangeActiveTextEditor((editor) => {
-        if (!editor) return;
-        
-        const uri = editor.document.uri.toString();
-        const scheme = editor.document.uri.scheme;
-        
-        // Detect when user switches to Copilot Chat
-        if (scheme === 'webview-panel' && (uri.includes('copilot') || uri.includes('chat'))) {
-            debugChannel.appendLine(`[DEBUG] 🎯 USER SWITCHED TO COPILOT CHAT`);
-            
-            // Small delay to see if this was due to sending a message
-            setTimeout(() => {
-                const now = Date.now();
-                if (now - lastDetectedTime > 2000) {
-                    lastDetectedTime = now;
-                    debugChannel.appendLine('[DEBUG] 🚀 CHAT FOCUS DETECTION!');
-                    handleAIActivity();
-                }
-            }, 800);
-        }
-    });
-    
-    debugChannel.appendLine('[DEBUG] 🎹 ENTER KEY DETECTION ACTIVE');
-    debugChannel.appendLine('[DEBUG] 💡 Send a message in Copilot Chat and it should be detected!');
+    debugChannel.appendLine('[DEBUG] 🎹 SIMPLE COPILOT ENTER DETECTION ACTIVE');
+    debugChannel.appendLine('[DEBUG] 💡 Will detect when you send messages in Copilot Chat');
     debugChannel.appendLine('[DEBUG] 💡 Backup: Use Ctrl+Shift+A after sending a message');
     
-    return [textChangeListener, editorChangeListener];
+    return [editorChangeListener, textChangeListener];
 }

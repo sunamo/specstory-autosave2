@@ -1,5 +1,6 @@
 import * as vscode from 'vscode';
 import { logDebug, logAIActivity } from '../utils/logger';
+import { initializeEnterKeyDetection } from '../enterDetection';
     // const disposableUniversal = vscode.workspace.onDidChangeConfiguration((event) => {
     //     if (event.affectsConfiguration('copilot') || 
     //         event.affectsConfiguration('chat') ||
@@ -70,6 +71,14 @@ export function initializeBasicDetection(
         logDebug(`✅ handleAIActivity() FINISHED from [${source}]`);
     };
 
+    // NEW: Advanced Enter Key Detection (primary method)
+    logDebug('🎹 Initializing Advanced Enter Key Detection...');
+    const enterKeyDisposables = initializeEnterKeyDetection(
+        () => debouncedHandleAIActivity('Enter-Key-Detection'),
+        debugChannel
+    );
+    disposables.push(...enterKeyDisposables);
+
     if (enableCommandHook) {
         const commandHookDisposables = initializeCommandHook(
             () => debouncedHandleAIActivity('Command-Hook'),
@@ -90,7 +99,7 @@ export function initializeBasicDetection(
         disposables.push({ dispose: () => clearInterval(pollingInterval) });
     }
     
-    logDebug('✅ Detection initialized.');
+    logDebug('✅ Detection initialized with Advanced Enter Key Detection.');
     
     return disposables;
 }
