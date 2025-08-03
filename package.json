@@ -37,67 +37,71 @@
     "commands": [
       {
         "command": "specstoryautosave.findSpecStoryCommands",
-        "title": "SpecStoryAutoSave: Find All SpecStory Commands (Test)"
+        "title": "SpecStory AutoSave + AI Copilot Prompt Detection: Find All SpecStory Commands (Test)"
       },
       {
         "command": "specstoryautosave.testSpecStoryDialog",
-        "title": "SpecStoryAutoSave: Test SpecStory Dialog (Test)"
+        "title": "SpecStory AutoSave + AI Copilot Prompt Detection: Test SpecStory Dialog (Test)"
       },
       {
         "command": "specstoryautosave.test",
-        "title": "SpecStoryAutoSave: Test Extension"
+        "title": "SpecStory AutoSave + AI Copilot Prompt Detection: Test Extension"
       },
       {
         "command": "specstoryautosave.exportNow",
-        "title": "SpecStoryAutoSave: Export Chat History Now"
+        "title": "SpecStory AutoSave + AI Copilot Prompt Detection: Export Chat History Now"
       },
       {
         "command": "specstoryautosave.showCopilotCommands",
-        "title": "SpecStoryAutoSave: Show Available Copilot Commands (Debug)"
+        "title": "SpecStory AutoSave + AI Copilot Prompt Detection: Show Available Copilot Commands (Debug)"
       },
       {
         "command": "specstoryautosave.listAllCommands",
-        "title": "SpecStoryAutoSave: List All Available Commands (Debug)"
+        "title": "SpecStory AutoSave + AI Copilot Prompt Detection: List All Available Commands (Debug)"
       },
       {
         "command": "specstoryautosave.testAINotification",
-        "title": "SpecStoryAutoSave: Force AI Notification (Test)"
+        "title": "SpecStory AutoSave + AI Copilot Prompt Detection: Force AI Notification (Test)"
       },
       {
         "command": "specstoryautosave.forceAINotification",
-        "title": "SpecStoryAutoSave: Force AI Notification"
+        "title": "SpecStory AutoSave + AI Copilot Prompt Detection: Force AI Notification"
       },
       {
         "command": "specstoryautosave.testCopilotDetection",
-        "title": "SpecStoryAutoSave: Test Copilot Detection"
+        "title": "SpecStory AutoSave + AI Copilot Prompt Detection: Test Copilot Detection"
       },
       {
         "command": "specstoryautosave.resetPromptCounter",
-        "title": "SpecStoryAutoSave: Reset AI Prompt Counter"
+        "title": "SpecStory AutoSave + AI Copilot Prompt Detection: Reset AI Prompt Counter"
       },
       {
         "command": "specstoryautosave.toggleCopilotOnlyLogs",
-        "title": "SpecStoryAutoSave: Toggle Copilot-Only Logs"
+        "title": "SpecStory AutoSave + AI Copilot Prompt Detection: Toggle Copilot-Only Logs"
       },
       {
         "command": "specstoryautosave.clearLogs",
-        "title": "SpecStoryAutoSave: Clear Output Logs"
+        "title": "SpecStory AutoSave + AI Copilot Prompt Detection: Clear Output Logs"
       },
       {
         "command": "specstoryautosave.showPromptStats",
-        "title": "SpecStoryAutoSave: Show AI Prompt Statistics"
+        "title": "SpecStory AutoSave + AI Copilot Prompt Detection: Show AI Prompt Statistics"
       },
       {
         "command": "specstoryautosave.debugCommands",
-        "title": "SpecStoryAutoSave: Debug Command Detection"
+        "title": "SpecStory AutoSave + AI Copilot Prompt Detection: Debug Command Detection"
       },
       {
         "command": "specstoryautosave.toggleAINotifications",
-        "title": "SpecStoryAutoSave: Toggle AI Notifications"
+        "title": "SpecStory AutoSave + AI Copilot Prompt Detection: Toggle AI Notifications"
       },
       {
         "command": "specstoryautosave.keyboardTrigger",
-        "title": "SpecStoryAutoSave: Trigger AI Notification (Keyboard Test)"
+        "title": "SpecStory AutoSave + AI Copilot Prompt Detection: Trigger AI Notification (Keyboard Test)"
+      },
+      {
+        "command": "specstoryautosave.testHistoryDetection",
+        "title": "SpecStory AutoSave + AI Copilot Prompt Detection: Test SpecStory History Detection"
       }
     ],
     "keybindings": [
@@ -111,7 +115,7 @@
       "activitybar": [
         {
           "id": "specstoryAI",
-          "title": "SpecStory AutoSave",
+          "title": "SpecStory AutoSave + AI Copilot Prompt Detection",
           "icon": "icon.png"
         }
       ]
@@ -229,6 +233,11 @@
           "type": "boolean",
           "default": false,
           "description": "Enable detection based on rapid typing patterns typical for AI code generation (experimental - may cause false positives)"
+        },
+        "specstoryautosave.enableDebugLogs": {
+          "type": "boolean",
+          "default": false,
+          "description": "Enable detailed debug logging (disable for production builds)"
         },
         "specstoryautosave.showOnlyCopilotLogs": {
           "type": "boolean",

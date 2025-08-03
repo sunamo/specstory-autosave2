@@ -7,7 +7,6 @@ import { initializeAdvancedDetection } from './detection/advancedDetection';
 import { initializeAggressiveDetection } from './detection/aggressiveDetection';
 import { showAINotificationImmediately } from './notifications/notificationManager';
 import { handleAIActivity, generateSmartNotificationMessage, updateStatusBar } from './utils/aiActivityHandler';
-import { initializeLogger, logDebug, logInfo, logError } from './utils/logger';
 
 // Global variables
 let outputChannel: vscode.OutputChannel;
@@ -22,11 +21,8 @@ let aiActivityProvider: AIActivityProvider;
 
 export function activate(context: vscode.ExtensionContext) {
     // Create output channels
-    outputChannel = vscode.window.createOutputChannel('SpecStory AutoSave + AI Copilot Prompt Detection');
-    debugChannel = vscode.window.createOutputChannel('SpecStory AutoSave + AI Copilot Prompt Detection Debug');
-    
-    // Initialize logger
-    initializeLogger(debugChannel, outputChannel);
+    outputChannel = vscode.window.createOutputChannel('SpecStoryAutoSave');
+    debugChannel = vscode.window.createOutputChannel('SpecStoryAutoSave Debug');
     
     // Register webview provider for activity bar
     aiActivityProvider = new AIActivityProvider(context.extensionUri);
@@ -42,15 +38,9 @@ export function activate(context: vscode.ExtensionContext) {
     // Initialize status bar immediately
     updateStatusBar(statusBarItem, aiPromptCounter);
     
-    const config = vscode.workspace.getConfiguration('specstoryautosave');
-    const enableDebugLogs = config.get<boolean>('enableDebugLogs', false);
-    
-    logDebug('Extension activated');
-    if (enableDebugLogs) {
-        debugChannel.show(); // Show debug channel immediately only if debug enabled
-    }
-    logInfo('Extension activated and ready');
-    console.log('SpecStory AutoSave + AI Copilot Prompt Detection extension is now active!');
+    debugChannel.appendLine('[DEBUG] Extension activated');
+    debugChannel.show(); // Show debug channel immediately
+    console.log('SpecStoryAutoSave extension is now active!');
 
     // Initialize Copilot monitoring
     initializeCopilotMonitoring(context);
@@ -62,7 +52,7 @@ export function activate(context: vscode.ExtensionContext) {
 }
 
 function initializeCopilotMonitoring(context: vscode.ExtensionContext) {
-    logDebug('🔍 Initializing Copilot monitoring system...');
+    debugChannel.appendLine('[DEBUG] 🔍 Initializing Copilot monitoring system...');
     
     // Activate Copilot extensions first
     activateCopilotExtensions();
@@ -70,15 +60,14 @@ function initializeCopilotMonitoring(context: vscode.ExtensionContext) {
     const config = vscode.workspace.getConfiguration('specstoryautosave');
     const detectionLevel = config.get<string>('detectionLevel', 'basic');
     
-    logDebug(`Detection level: ${detectionLevel}`);
+    debugChannel.appendLine(`[DEBUG] Detection level: ${detectionLevel}`);
     
     // Set up detection based on configuration level
     performDiagnostics(detectionLevel);
     
     switch (detectionLevel) {
         case 'off':
-            logInfo('AI Detection is OFF - no monitoring will be performed');
-            logDebug('❌ AI Detection is OFF - no monitoring will be performed');
+            debugChannel.appendLine('[DEBUG] ❌ AI Detection is OFF - no monitoring will be performed');
             break;
             
         case 'basic':
@@ -188,11 +177,11 @@ function initializeCopilotMonitoring(context: vscode.ExtensionContext) {
             break;
     }
     
-    logDebug('✅ Copilot monitoring system initialized');
+    debugChannel.appendLine('[DEBUG] ✅ Copilot monitoring system initialized');
 }
 
 async function activateCopilotExtensions() {
-    logDebug('🔌 Attempting to activate Copilot extensions...');
+    debugChannel.appendLine('[DEBUG] 🔌 Attempting to activate Copilot extensions...');
     
     const copilotExtensions = [
         'GitHub.copilot',
@@ -204,15 +193,15 @@ async function activateCopilotExtensions() {
             const extension = vscode.extensions.getExtension(extensionId);
             if (extension) {
                 if (!extension.isActive) {
-                    logDebug(`🔌 Activating ${extensionId}...`);
+                    debugChannel.appendLine(`[DEBUG] 🔌 Activating ${extensionId}...`);
                     await extension.activate();
                 }
-                logDebug(`✅ ${extensionId} is active`);
+                debugChannel.appendLine(`[DEBUG] ✅ ${extensionId} is active`);
             } else {
-                logDebug(`❌ ${extensionId} not found`);
+                debugChannel.appendLine(`[DEBUG] ❌ ${extensionId} not found`);
             }
         } catch (error) {
-            logDebug(`⚠️ Could not activate ${extensionId}: ${error}`);
+            debugChannel.appendLine(`[DEBUG] ⚠️ Could not activate ${extensionId}: ${error}`);
         }
     }
 }
@@ -290,41 +279,8 @@ function registerCommands(context: vscode.ExtensionContext) {
         aiPromptCounter.value = 0;
         lastDetectedTime.value = 0;
         updateStatusBar(statusBarItem, aiPromptCounter);
-        logDebug('AI prompt counter reset to 0');
+        debugChannel.appendLine('[DEBUG] AI prompt counter reset to 0');
         vscode.window.showInformationMessage('AI prompt counter reset to 0');
-    });
-
-    // Command to test SpecStory history detection
-    const testHistoryDetection = vscode.commands.registerCommand('specstoryautosave.testHistoryDetection', async () => {
-        logInfo('🔍 Testing SpecStory history detection...');
-        logDebug('🔍 MANUAL TEST: User requested SpecStory history detection test');
-        
-        try {
-            const config = vscode.workspace.getConfiguration('specstoryautosave');
-            const historyPath = config.get<string>('specstoryHistoryPath', '');
-            
-            if (!historyPath) {
-                const message = 'SpecStory history path not configured. Please set specstoryautosave.specstoryHistoryPath in settings.';
-                logError(message);
-                vscode.window.showErrorMessage(message);
-                return;
-            }
-
-            logInfo(`Checking history path: ${historyPath}`);
-            logDebug(`📁 History path configured: ${historyPath}`);
-            
-            // Trigger AI activity simulation for testing
-            logDebug('🎯 Simulating AI activity from history detection...');
-            handleAIActivity(aiPromptCounter, debugChannel, async () => {
-                const message = await generateSmartNotificationMessage(debugChannel);
-                await showAINotificationImmediately(message, aiActivityProvider, aiNotificationPanel, debugChannel, countdownTimer);
-            }, () => updateStatusBar(statusBarItem, aiPromptCounter));
-            
-            vscode.window.showInformationMessage('SpecStory history detection test completed - check output for details');
-        } catch (error) {
-            logError(`Failed to test history detection: ${error}`);
-            vscode.window.showErrorMessage(`History detection test failed: ${error}`);
-        }
     });
 
     // Add commands to context
@@ -332,11 +288,10 @@ function registerCommands(context: vscode.ExtensionContext) {
     context.subscriptions.push(forceAINotification);
     context.subscriptions.push(showPromptStats);
     context.subscriptions.push(resetCounter);
-    context.subscriptions.push(testHistoryDetection);
     context.subscriptions.push(outputChannel);
     context.subscriptions.push(debugChannel);
     
-    logDebug('All commands registered successfully');
+    debugChannel.appendLine('[DEBUG] All commands registered successfully');
 }
 
 export function deactivate() {

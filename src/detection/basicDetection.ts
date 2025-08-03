@@ -1,4 +1,5 @@
 import * as vscode from 'vscode';
+import { logDebug, logAIActivity } from '../utils/logger';
 
 /**
  * Basic detection methods - command hooks, webview monitoring, panel focus
@@ -11,7 +12,7 @@ export function initializeBasicDetection(
     enableWebview: boolean = true, 
     enablePanelFocus: boolean = true
 ) {
-    debugChannel.appendLine(`[DEBUG] 🎯 Initializing BASIC detection - CommandHook: ${enableCommandHook}, Webview: ${enableWebview}, PanelFocus: ${enablePanelFocus}`);
+    logDebug(`🎯 Initializing BASIC detection - CommandHook: ${enableCommandHook}, Webview: ${enableWebview}, PanelFocus: ${enablePanelFocus}`);
     
     const disposables: vscode.Disposable[] = [];
     
@@ -21,16 +22,18 @@ export function initializeBasicDetection(
             if (!editor) return;
             
             const uri = editor.document.uri.toString();
-            debugChannel.appendLine(`[DEBUG] 📝 Active editor: ${uri}`);
+            logDebug(`📝 Active editor: ${uri}`);
             
             // Detect Copilot Chat webview panels
             if (uri.includes('webview-panel') && uri.includes('copilot')) {
-                debugChannel.appendLine(`[DEBUG] 🎯 COPILOT CHAT PANEL DETECTED: ${uri}`);
+                logDebug(`🎯 COPILOT CHAT PANEL DETECTED: ${uri}`);
+                logAIActivity(`Copilot Chat panel activated: ${uri}`);
                 
                 const now = Date.now();
                 if (now - lastDetectedTime.value > 1000) {
                     lastDetectedTime.value = now;
-                    debugChannel.appendLine('[DEBUG] 🚀 BASIC WEBVIEW DETECTION!');
+                    logDebug('🚀 BASIC WEBVIEW DETECTION!');
+                    logAIActivity('AI activity detected via webview panel activation');
                     handleAIActivity();
                 }
             }
@@ -42,7 +45,7 @@ export function initializeBasicDetection(
     if (enablePanelFocus) {
         const disposable2 = vscode.window.onDidChangeWindowState((state) => {
             if (state.focused) {
-                debugChannel.appendLine('[DEBUG] 🖼️ Window focus changed - checking for chat activity');
+                logDebug('🖼️ Window focus changed - checking for chat activity');
                 
                 // Check if any chat-related commands are available
                 vscode.commands.getCommands(true).then(commands => {
