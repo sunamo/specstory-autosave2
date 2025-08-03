@@ -2,7 +2,7 @@
   "name": "specstory-autosave",
   "displayName": "SpecStory AutoSave + AI Copilot Prompt Detection",
   "description": "Auto-exports GitHub Copilot Chat to SpecStory documentation + instant AI prompt detection with quality verification notifications",
-  	"version": "1.1.62",
+  	"version": "1.1.63",
   "publisher": "sunamocz",
   "icon": "icon.png",
   "repository": {
@@ -152,6 +152,11 @@
           "description": "Show AI notification every Nth prompt - 1 = every prompt, 2 = every 2nd prompt, etc. (only applied when Activity Bar display is not available)",
           "when": "config.specstoryautosave.notificationDisplayType != 'activitybar'"
         },
+        "specstoryautosave.enableDebugLogs": {
+          "type": "boolean",
+          "default": true,
+          "description": "Enable detailed debug logging (recommended for development and troubleshooting)"
+        },
         "specstoryautosave.detectionLevel": {
           "type": "string",
           "enum": ["off", "basic", "advanced", "aggressive"],
@@ -227,17 +232,6 @@
           "minimum": 1,
           "maximum": 50,
           "description": "Maximum number of AI prompts to show in Activity Bar view history (1-50)"
-        },
-        "specstoryautosave.enableDebugLogs": {
-          "type": "boolean",
-          "default": false,
-          "description": "Enable detailed debug logging (disable for production builds)"
-        },
-        "specstoryautosave.showOnlyCopilotLogs": {
-          "type": "boolean",
-          "default": false,
-          "description": "Show only Copilot/AI related logs in the output channel (filters out other extension logs)",
-          "when": "false"
         }
       }
     }
