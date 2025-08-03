@@ -43,14 +43,22 @@ export async function showAINotificationImmediately(
                 break;
         }
     } else if (displayType === 'activitybar') {
-        // Use activity bar view
-        debugChannel.appendLine('[DEBUG] Using activity bar display');
+        // Use activity bar view + brief notification
+        debugChannel.appendLine('[DEBUG] Using activity bar display with brief notification');
         
         const startTime = Date.now();
         
         // Add notification first
         await aiActivityProvider.addNotification(message);
         debugChannel.appendLine(`[DEBUG] Activity provider notification added in ${Date.now() - startTime}ms`);
+        
+        // Show brief VS Code notification as well for immediate feedback
+        const shortMessage = message.split('\n')[0]; // First line only
+        vscode.window.showInformationMessage(
+            `🤖 ${shortMessage}`,
+            { modal: false }
+        );
+        debugChannel.appendLine('[DEBUG] Brief notification shown');
         
         // Focus the activity bar view with retry mechanism
         try {
