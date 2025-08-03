@@ -1,5 +1,6 @@
 import * as vscode from 'vscode';
 import { findSpecStoryHistoryPath, readRecentSpecStoryConversations } from './specstory/historyReader';
+import { logDebug, logInfo, logError } from './utils/logger';
 
 /**
  * WebView Provider for Activity Bar - handles AI activity notifications display
@@ -48,17 +49,17 @@ export class AIActivityProvider implements vscode.WebviewViewProvider {
         try {
             const specstoryPath = await findSpecStoryHistoryPath();
             if (!specstoryPath) {
-                console.log('[DEBUG] No SpecStory path found');
+                logDebug('No SpecStory path found for Activity Bar');
                 return;
             }
 
             const conversations = await readRecentSpecStoryConversations(specstoryPath, 15, undefined as any);
             if (!conversations || conversations.length === 0) {
-                console.log('[DEBUG] No conversations found');
+                logDebug('No conversations found for Activity Bar');
                 return;
             }
 
-            console.log(`[DEBUG] Found ${conversations.length} conversations`);
+            logDebug(`Found ${conversations.length} conversations for Activity Bar`);
 
             // Transform conversations to prompts with shortened content
             this._prompts = conversations.map((conv, index) => {
@@ -109,9 +110,9 @@ export class AIActivityProvider implements vscode.WebviewViewProvider {
                 this._prompts = this._prompts.slice(0, maxPrompts);
             }
 
-            console.log(`[DEBUG] Loaded ${this._prompts.length} prompts for Activity Bar`);
+            logInfo(`Loaded ${this._prompts.length} prompts for Activity Bar`);
         } catch (error) {
-            console.error('Failed to load prompts from SpecStory:', error);
+            logError(`Failed to load prompts from SpecStory for Activity Bar: ${error}`);
         }
     }
 
