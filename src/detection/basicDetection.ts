@@ -56,7 +56,7 @@ export function initializeBasicDetection(
     debugChannel: vscode.OutputChannel,
     lastDetectedTime: { value: number }
 ) {
-    logDebug(`🎯 Initializing detection with reliable notebook listener.`);
+    logDebug(`🎯 Initializing detection with file watcher and polling.`);
     
     const disposables: vscode.Disposable[] = [];
     
@@ -67,16 +67,13 @@ export function initializeBasicDetection(
         logDebug(`✅ handleAIActivity() FINISHED from [${source}]`);
     };
 
-    // Notebook listener removed (not supported in VS Code API)
-    // Detection is handled by file watcher and polling only.
-    
-    // Fallback: SpecStory file monitoring
+    // SpecStory file monitoring
     const specstoryWatcher = initializeSpecStoryWatcher(() => debouncedHandleAIActivity('SpecStory-File'), debugChannel);
     if (specstoryWatcher) {
         disposables.push(specstoryWatcher);
     }
     
-    // Fallback: Ultra-fast polling for file changes
+    // Ultra-fast polling for file changes
     const pollingInterval = initializePollingDetection(() => debouncedHandleAIActivity('Polling'), debugChannel);
     if (pollingInterval) {
         disposables.push({ dispose: () => clearInterval(pollingInterval) });
