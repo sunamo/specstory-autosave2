@@ -2,7 +2,7 @@
   "name": "specstory-autosave",
   "displayName": "SpecStory AutoSave + AI Copilot Prompt Detection",
   "description": "Auto-exports GitHub Copilot Chat to SpecStory documentation + instant AI prompt detection with quality verification notifications",
-  	"version": "1.1.71",
+  	"version": "1.1.72",
   "publisher": "sunamocz",
   "icon": "icon.png",
   "repository": {
@@ -199,6 +199,18 @@
           "type": "boolean",
           "default": false,
           "description": "Enable detection based on rapid file changes and creation patterns (experimental - may cause false positives)"
+        },
+        "specstoryautosave.enableSpecStoryExportDetection": {
+          "type": "boolean",
+          "default": false,
+          "description": "Enable detection by actively exporting SpecStory data and monitoring changes (most reliable method, but requires SpecStory extension)"
+        },
+        "specstoryautosave.specStoryExportInterval": {
+          "type": "number",
+          "default": 2,
+          "minimum": 1,
+          "maximum": 10,
+          "description": "Interval in seconds for SpecStory export attempts (1-10 seconds)"
         },
         "specstoryautosave.notificationDisplayType": {
           "type": "string",

@@ -5,6 +5,7 @@ import { AIActivityProvider } from './activityProvider';
 import { initializeBasicDetection } from './detection/basicDetection';
 import { initializeAdvancedDetection } from './detection/advancedDetection';
 import { initializeAggressiveDetection } from './detection/aggressiveDetection';
+import { initializeSpecStoryExportDetection } from './detection/specStoryExportDetection';
 import { showAINotificationImmediately } from './notifications/notificationManager';
 import { handleAIActivity, generateSmartNotificationMessage, updateStatusBar } from './utils/aiActivityHandler';
 import { initializeLogger, logDebug, logInfo, logError, logAIActivity, logExport } from './utils/logger';
@@ -162,7 +163,11 @@ function initializeCopilotMonitoring(context: vscode.ExtensionContext) {
                 const enableMemory = config.get<boolean>('enableMemoryDetection', false);
                 const enableTerminal = config.get<boolean>('enableTerminalDetection', false);
                 const enableFileSystem = config.get<boolean>('enableFileSystemDetection', false);
+                const enableSpecStoryExport = config.get<boolean>('enableSpecStoryExportDetection', false);
                 
+                const allDisposables: vscode.Disposable[] = [];
+                
+                // Traditional detection methods
                 const basicDisposables = initializeBasicDetection(
                     createAIActivityHandler(),
                     debugChannel,
@@ -171,12 +176,14 @@ function initializeCopilotMonitoring(context: vscode.ExtensionContext) {
                     enableWebview,
                     enablePanelFocus
                 );
+                allDisposables.push(...basicDisposables);
                 
                 const advancedDisposables = initializeAdvancedDetection(
                     createAIActivityHandler(),
                     debugChannel,
                     lastDetectedTime
                 );
+                allDisposables.push(...advancedDisposables);
                 
                 const aggressiveDisposables = initializeAggressiveDetection(
                     createAIActivityHandler(),
@@ -187,8 +194,20 @@ function initializeCopilotMonitoring(context: vscode.ExtensionContext) {
                     enableTerminal,
                     enableFileSystem
                 );
+                allDisposables.push(...aggressiveDisposables);
                 
-                [...basicDisposables, ...advancedDisposables, ...aggressiveDisposables].forEach(d => context.subscriptions.push(d));
+                // NEW: SpecStory Export Detection (most reliable)
+                if (enableSpecStoryExport) {
+                    logDebug('🎯 Initializing SpecStory Export Detection (most reliable method)');
+                    const specStoryExportDisposables = initializeSpecStoryExportDetection(
+                        createAIActivityHandler(),
+                        debugChannel
+                    );
+                    allDisposables.push(...specStoryExportDisposables);
+                }
+                
+                // Register all disposables
+                allDisposables.forEach(d => context.subscriptions.push(d));
             }
             break;
     }
