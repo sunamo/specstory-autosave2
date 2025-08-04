@@ -227,3 +227,4 @@ Remove-Item "%TEMP%" -Recurse -Force -ErrorAction SilentlyContinue
 - `code --install-extension`
 
 User wants everything to run automatically without waiting for confirmation!
+follow the sources for a better solution to my requirements. I have attached the folders C:\_\vscode-copilot-chat\ and C:\_\vscode-main\ where you will find the complete sources of github copilot chat and vscode. They are images of the online repositories https://github.com/microsoft/vscode-copilot-chat and https://github.com/microsoft/vscode, if you prefer the online version
