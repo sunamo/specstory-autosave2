@@ -1,4 +1,5 @@
 import * as vscode from 'vscode';
+import { AIActivityProvider } from './activityProvider';
 
 let outputChannel: vscode.OutputChannel;
 let debugChannel: vscode.OutputChannel;
@@ -156,7 +157,14 @@ export function activate(context: vscode.ExtensionContext) {
     context.subscriptions.push(outputChannel);
     context.subscriptions.push(debugChannel);
     
+    // Register Activity Bar WebView Provider
+    const aiActivityProvider = new AIActivityProvider(context.extensionUri);
+    context.subscriptions.push(
+        vscode.window.registerWebviewViewProvider(AIActivityProvider.viewType, aiActivityProvider)
+    );
+    
     debugChannel.appendLine('[DEBUG] All commands registered successfully');
+    debugChannel.appendLine('[DEBUG] Activity Bar WebView Provider registered');
 }
 
 function initializeCopilotMonitoring() {

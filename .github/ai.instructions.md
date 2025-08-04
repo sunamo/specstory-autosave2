@@ -228,3 +228,14 @@ Remove-Item "%TEMP%" -Recurse -Force -ErrorAction SilentlyContinue
 
 User wants everything to run automatically without waiting for confirmation!
 follow the sources for a better solution to my requirements. I have attached the folders C:\_\vscode-copilot-chat\ and C:\_\vscode-main\ where you will find the complete sources of github copilot chat and vscode. They are images of the online repositories https://github.com/microsoft/vscode-copilot-chat and https://github.com/microsoft/vscode, if you prefer the online version
+
+Use only the ai.instructions.md file to write instructions. Not ai-instructions.md as you keep trying to create. Write all instructions in English.
+
+Never do anything you're not asked to do. Don't ruin my project by doing something you're not even asked to do.
+
+don't check for the extension being created in this vscode. I'm testing it in vscode insider. Therefore, any commands on code or code.exe are completely useless.
+
+never run commands like code --extensionDevelopmentPath=. . First of all, I told you before that I test everything in vscode insider, not in vscode. Second, always use the .\install.ps1 script. No pnpm run watch, pnpm run build, etc. Install.ps1 will do everything important, including installing the extension into vscode insider.
+
+Never add or change the watch command to package.json. I basically only use install.ps1 for building.
+
