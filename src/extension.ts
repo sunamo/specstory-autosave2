@@ -1,394 +1,35 @@
 import * as vscode from 'vscode';
 
-// Import modular components
-import { AIActivityProvider } from './activityProvider';
-import { initializeBasicDetection } from './detection/basicDetection';
-import { initializeAdvancedDetection } from './detection/advancedDetection';
-import { initializeAggressiveDetection } from './detection/aggressiveDetection';
-import { initializeSpecStoryExportDetection } from './detection/specStoryExportDetection';
-import { showAINotificationImmediately } from './notifications/notificationManager';
-import { handleAIActivity, generateSmartNotificationMessage, updateStatusBar } from './utils/aiActivityHandler';
-import { initializeLogger, logDebug, logInfo, logError, logAIActivity, logExport } from './utils/logger';
-import { findSpecStoryHistoryPath } from './specstory/historyReader';
-
-// Global variables
 let outputChannel: vscode.OutputChannel;
 let debugChannel: vscode.OutputChannel;
-let exportChannel: vscode.OutputChannel;
 let statusBarItem: vscode.StatusBarItem;
 let copilotOutputChannel: vscode.OutputChannel | undefined;
-let aiPromptCounter = { value: 0 };
-let lastDetectedTime = { value: 0 };
-let countdownTimer = { value: undefined as NodeJS.Timeout | undefined };
-let autoSaveTimer = { value: undefined as NodeJS.Timeout | undefined };
-let aiNotificationPanel = { value: undefined as vscode.WebviewPanel | undefined };
-let aiActivityProvider: AIActivityProvider;
+let aiPromptCounter = 0;
+let lastDetectedTime = 0;
+let countdownTimer: NodeJS.Timeout | undefined;
+let promptHistory: string[] = [];
+const MAX_PROMPT_HISTORY = 1000;
 
 export function activate(context: vscode.ExtensionContext) {
     // Create output channels
-    outputChannel = vscode.window.createOutputChannel('SpecStory AutoSave + AI Copilot Prompt Detection');
-    debugChannel = vscode.window.createOutputChannel('SpecStory AutoSave + AI Copilot Prompt Detection Debug');
-    exportChannel = vscode.window.createOutputChannel('SpecStory AutoSave - Chat Exports');
-    
-    // Initialize logger
-    initializeLogger(debugChannel, outputChannel, exportChannel);
-    
-    // Register webview provider for activity bar
-    aiActivityProvider = new AIActivityProvider(context.extensionUri);
-    context.subscriptions.push(
-        vscode.window.registerWebviewViewProvider(AIActivityProvider.viewType, aiActivityProvider)
-    );
+    outputChannel = vscode.window.createOutputChannel('SpecStoryAutoSave');
+    debugChannel = vscode.window.createOutputChannel('SpecStoryAutoSave Debug');
     
     // Create status bar item
     statusBarItem = vscode.window.createStatusBarItem(vscode.StatusBarAlignment.Right, 100);
     statusBarItem.command = 'specstoryautosave.showPromptStats';
     context.subscriptions.push(statusBarItem);
     
-    // Initialize status bar immediately and show it
-    updateStatusBar(statusBarItem, aiPromptCounter);
-    statusBarItem.show(); // Explicitly show the status bar
+    // Initialize status bar immediately
+    updateStatusBar();
     
-    const config = vscode.workspace.getConfiguration('specstoryautosave');
-    const enableDebugLogs = config.get<boolean>('enableDebugLogs', false);
-    
-    // Initialize logger
-    initializeLogger(debugChannel, outputChannel, exportChannel);
-    
-    logDebug('Extension activated');
-    if (enableDebugLogs) {
-        debugChannel.show(); // Show debug channel immediately only if debug enabled
-    }
-    logInfo('Extension activated and ready');
-    console.log('SpecStory AutoSave + AI Copilot Prompt Detection extension is now active!');
+    debugChannel.appendLine('[DEBUG] Extension activated');
+    debugChannel.show(); // Show debug channel immediately
+    console.log('SpecStoryAutoSave extension is now active!');
 
     // Initialize Copilot monitoring
-    initializeCopilotMonitoring(context);
+    initializeCopilotMonitoring();
     
-    // Add SpecStory file monitoring
-    initializeSpecStoryMonitoring(context);
-    
-    // Register commands
-    registerCommands(context);
-    
-    // Setup auto-save intervals
-    setupAutoSaveIntervals();
-    
-    // Setup configuration listener for auto-save changes
-    setupConfigurationListener();
-    
-    debugChannel.appendLine('[DEBUG] All components initialized successfully');
-}
-
-// Create wrapper function for handleAIActivity with proper parameters
-function createAIActivityHandler() {
-    return () => handleAIActivity(aiPromptCounter, debugChannel, async () => {
-        const message = await generateSmartNotificationMessage(debugChannel);
-        await showAINotificationImmediately(message, aiActivityProvider, aiNotificationPanel, debugChannel, countdownTimer);
-    }, () => updateStatusBar(statusBarItem, aiPromptCounter), lastDetectedTime);
-}
-
-function initializeCopilotMonitoring(context: vscode.ExtensionContext) {
-    logDebug('🔍 Initializing Copilot monitoring system...');
-    
-    // Activate Copilot extensions first
-    activateCopilotExtensions();
-    
-    const config = vscode.workspace.getConfiguration('specstoryautosave');
-    const detectionLevel = config.get<string>('detectionLevel', 'basic');
-    
-    logDebug(`Detection level: ${detectionLevel}`);
-    
-    // Set up detection based on configuration level
-    performDiagnostics(detectionLevel);
-    
-    switch (detectionLevel) {
-        case 'off':
-            logInfo('AI Detection is OFF - no monitoring will be performed');
-            logDebug('❌ AI Detection is OFF - no monitoring will be performed');
-            break;
-            
-        case 'basic':
-            {
-                const enableCommandHook = config.get<boolean>('enableCommandHookDetection', true);
-                const enableWebview = config.get<boolean>('enableWebviewDetection', true);  
-                const enablePanelFocus = config.get<boolean>('enablePanelFocusDetection', false);
-                
-                const disposables = initializeBasicDetection(
-                    createAIActivityHandler(),
-                    debugChannel,
-                    lastDetectedTime,
-                    enableCommandHook,
-                    enableWebview,
-                    enablePanelFocus
-                );
-                
-                disposables.forEach(d => context.subscriptions.push(d));
-            }
-            break;
-            
-        case 'advanced':
-            {
-                // Basic detection first
-                const enableCommandHook = config.get<boolean>('enableCommandHookDetection', true);
-                const enableWebview = config.get<boolean>('enableWebviewDetection', true);  
-                const enablePanelFocus = config.get<boolean>('enablePanelFocusDetection', false);
-                
-                const basicDisposables = initializeBasicDetection(
-                    createAIActivityHandler(),
-                    debugChannel,
-                    lastDetectedTime,
-                    enableCommandHook,
-                    enableWebview,
-                    enablePanelFocus
-                );
-                
-                // Advanced detection
-                const advancedDisposables = initializeAdvancedDetection(
-                    createAIActivityHandler(),
-                    debugChannel,
-                    lastDetectedTime
-                );
-                
-                [...basicDisposables, ...advancedDisposables].forEach(d => context.subscriptions.push(d));
-            }
-            break;
-            
-        case 'aggressive':
-            {
-                // All detection methods
-                const enableCommandHook = config.get<boolean>('enableCommandHookDetection', true);
-                const enableWebview = config.get<boolean>('enableWebviewDetection', true);  
-                const enablePanelFocus = config.get<boolean>('enablePanelFocusDetection', false);
-                const enableCodeInsertion = config.get<boolean>('enableCodeInsertionDetection', false);
-                const enableMemory = config.get<boolean>('enableMemoryDetection', false);
-                const enableTerminal = config.get<boolean>('enableTerminalDetection', false);
-                const enableFileSystem = config.get<boolean>('enableFileSystemDetection', false);
-                const enableSpecStoryExport = config.get<boolean>('enableSpecStoryExportDetection', false);
-                
-                const allDisposables: vscode.Disposable[] = [];
-                
-                // Traditional detection methods
-                const basicDisposables = initializeBasicDetection(
-                    createAIActivityHandler(),
-                    debugChannel,
-                    lastDetectedTime,
-                    enableCommandHook,
-                    enableWebview,
-                    enablePanelFocus
-                );
-                allDisposables.push(...basicDisposables);
-                
-                const advancedDisposables = initializeAdvancedDetection(
-                    createAIActivityHandler(),
-                    debugChannel,
-                    lastDetectedTime
-                );
-                allDisposables.push(...advancedDisposables);
-                
-                const aggressiveDisposables = initializeAggressiveDetection(
-                    createAIActivityHandler(),
-                    debugChannel,
-                    lastDetectedTime,
-                    enableCodeInsertion,
-                    enableMemory,
-                    enableTerminal,
-                    enableFileSystem
-                );
-                allDisposables.push(...aggressiveDisposables);
-                
-                // NEW: SpecStory Export Detection (most reliable)
-                if (enableSpecStoryExport) {
-                    logDebug('🎯 Initializing SpecStory Export Detection (most reliable method)');
-                    const specStoryExportDisposables = initializeSpecStoryExportDetection(
-                        createAIActivityHandler(),
-                        debugChannel
-                    );
-                    allDisposables.push(...specStoryExportDisposables);
-                }
-                
-                // Register all disposables
-                allDisposables.forEach(d => context.subscriptions.push(d));
-            }
-            break;
-    }
-    
-    logDebug('✅ Copilot monitoring system initialized');
-}
-
-function initializeSpecStoryMonitoring(context: vscode.ExtensionContext) {
-    logDebug('📁 Initializing SpecStory file monitoring...');
-    
-    // DISABLED: SpecStory file open detection - causes duplicate notifications for old files
-    /*
-    const fileWatcher = vscode.workspace.onDidOpenTextDocument((document) => {
-        const filePath = document.uri.fsPath;
-        
-        // Check if it's a SpecStory history file
-        if (filePath.includes('.specstory') && filePath.includes('history') && filePath.endsWith('.md')) {
-            logDebug(`📄 SpecStory file opened: ${filePath}`);
-            logAIActivity(`SpecStory history file accessed: ${document.fileName}`);
-            
-            // Read the content to see if it contains AI prompts
-            const content = document.getText();
-            
-            // Detect AI conversation patterns in SpecStory files
-            const hasUserPrompts = content.includes('**User:**') || content.includes('## User') || 
-                                 content.match(/^\s*\d+\.\s*.*$/gm); // Numbered prompts like "1. something"
-            const hasAssistantResponses = content.includes('**Assistant:**') || content.includes('## Assistant') ||
-                                        content.includes('**GitHub Copilot:**');
-            const hasCodeBlocks = content.includes('```');
-            const hasConversationStructure = content.includes('---') || content.includes('###');
-            
-            // Count recent activity indicators
-            const lines = content.split('\n');
-            const hasRecentTimestamp = lines.some(line => {
-                const today = new Date().toISOString().split('T')[0]; // YYYY-MM-DD
-                return line.includes(today) || line.includes('2025-08-03'); // Today's date
-            });
-            
-            logDebug(`📊 SpecStory analysis: User prompts: ${hasUserPrompts}, Assistant responses: ${hasAssistantResponses}, Code blocks: ${hasCodeBlocks}, Structure: ${hasConversationStructure}, Recent: ${hasRecentTimestamp}`);
-            
-            if ((hasUserPrompts || hasAssistantResponses || hasCodeBlocks) && hasConversationStructure) {
-                logDebug('🎯 SpecStory file contains AI conversation - triggering notification');
-                logAIActivity(`AI conversation detected in SpecStory file: ${document.fileName}`);
-                
-                // Trigger AI activity notification
-                handleAIActivity(aiPromptCounter, debugChannel, async () => {
-                    const message = await generateSmartNotificationMessage(debugChannel);
-                    await showAINotificationImmediately(message, aiActivityProvider, aiNotificationPanel, debugChannel, countdownTimer);
-                }, () => updateStatusBar(statusBarItem, aiPromptCounter), lastDetectedTime);
-            } else {
-                logDebug('📄 SpecStory file opened but no clear AI conversation patterns detected');
-            }
-        }
-    });
-    */
-    
-    // Monitor when SpecStory files are changed/saved
-    const changeWatcher = vscode.workspace.onDidChangeTextDocument((event) => {
-        const filePath = event.document.uri.fsPath;
-        
-        if (filePath.includes('.specstory') && filePath.includes('history') && filePath.endsWith('.md')) {
-            logDebug(`📝 SpecStory file changed: ${filePath}`);
-            
-            // Only process if there were substantial changes
-            if (event.contentChanges.length > 0) {
-                const totalChanges = event.contentChanges.reduce((sum, change) => sum + change.text.length, 0);
-                
-                if (totalChanges > 50) { // Only trigger for substantial changes
-                    logDebug(`📈 Substantial changes detected (${totalChanges} characters)`);
-                    logAIActivity(`SpecStory file modified: ${event.document.fileName} (${totalChanges} chars)`);
-                    
-                    // Check if the changes include AI conversation patterns
-                    const newContent = event.document.getText();
-                    const hasNewAIContent = newContent.includes('**Assistant:**') || 
-                                          newContent.includes('**GitHub Copilot:**') ||
-                                          newContent.includes('```') ||
-                                          newContent.includes('## Assistant');
-                    
-                    if (hasNewAIContent) {
-                        logDebug('🔥 New AI content detected in SpecStory file changes');
-                        
-                        handleAIActivity(aiPromptCounter, debugChannel, async () => {
-                            const message = await generateSmartNotificationMessage(debugChannel);
-                            await showAINotificationImmediately(message, aiActivityProvider, aiNotificationPanel, debugChannel, countdownTimer);
-                        }, () => updateStatusBar(statusBarItem, aiPromptCounter), lastDetectedTime);
-                    }
-                }
-            }
-        }
-    });
-    
-    // Monitor when user changes focus to SpecStory files
-    const editorWatcher = vscode.window.onDidChangeActiveTextEditor((editor) => {
-        if (editor) {
-            const filePath = editor.document.uri.fsPath;
-            
-            if (filePath.includes('.specstory') && filePath.includes('history') && filePath.endsWith('.md')) {
-                logDebug(`📝 User switched to SpecStory file: ${filePath}`);
-                logAIActivity(`User viewing SpecStory history: ${editor.document.fileName}`);
-                
-                // Check if file was recently modified (within last 5 minutes)
-                const stats = require('fs').statSync(filePath);
-                const now = Date.now();
-                const fileModified = stats.mtime.getTime();
-                const fiveMinutesAgo = now - (5 * 60 * 1000);
-                
-                if (fileModified > fiveMinutesAgo) {
-                    logDebug('🔥 SpecStory file was recently modified - likely new AI activity');
-                    logAIActivity('Recent SpecStory file modification detected');
-                    
-                    handleAIActivity(aiPromptCounter, debugChannel, async () => {
-                        const message = await generateSmartNotificationMessage(debugChannel);
-                        await showAINotificationImmediately(message, aiActivityProvider, aiNotificationPanel, debugChannel, countdownTimer);
-                    }, () => updateStatusBar(statusBarItem, aiPromptCounter), lastDetectedTime);
-                }
-            }
-        }
-    });
-    
-    // context.subscriptions.push(fileWatcher); // DISABLED - fileWatcher is commented out
-    context.subscriptions.push(changeWatcher);
-    context.subscriptions.push(editorWatcher);
-    
-    logDebug('✅ SpecStory file monitoring initialized');
-}
-
-async function activateCopilotExtensions() {
-    logDebug('🔌 Attempting to activate Copilot extensions...');
-    
-    const copilotExtensions = [
-        'GitHub.copilot',
-        'GitHub.copilot-chat'
-    ];
-    
-    for (const extensionId of copilotExtensions) {
-        try {
-            const extension = vscode.extensions.getExtension(extensionId);
-            if (extension) {
-                if (!extension.isActive) {
-                    logDebug(`🔌 Activating ${extensionId}...`);
-                    await extension.activate();
-                }
-                logDebug(`✅ ${extensionId} is active`);
-            } else {
-                logDebug(`❌ ${extensionId} not found`);
-            }
-        } catch (error) {
-            logDebug(`⚠️ Could not activate ${extensionId}: ${error}`);
-        }
-    }
-}
-
-async function performDiagnostics(detectionLevel: string) {
-    debugChannel.appendLine('[DEBUG] 🔍 Performing system diagnostics...');
-    
-    // Check if Copilot extensions are installed
-    const copilotExtension = vscode.extensions.getExtension('GitHub.copilot');
-    const copilotChatExtension = vscode.extensions.getExtension('GitHub.copilot-chat');
-    
-    debugChannel.appendLine(`[DEBUG] GitHub Copilot extension: ${copilotExtension ? '✅ Found' : '❌ Not found'}`);
-    debugChannel.appendLine(`[DEBUG] GitHub Copilot Chat extension: ${copilotChatExtension ? '✅ Found' : '❌ Not found'}`);
-    
-    // Check available commands
-    const allCommands = await vscode.commands.getCommands(true);
-    const copilotCommands = allCommands.filter(cmd => cmd.includes('copilot') || cmd.includes('chat'));
-    debugChannel.appendLine(`[DEBUG] Found ${copilotCommands.length} Copilot-related commands`);
-    
-    // Log first few commands for debugging
-    copilotCommands.slice(0, 5).forEach(cmd => {
-        debugChannel.appendLine(`[DEBUG]   - ${cmd}`);
-    });
-    
-    if (copilotCommands.length > 5) {
-        debugChannel.appendLine(`[DEBUG]   ... and ${copilotCommands.length - 5} more`);
-    }
-    
-    debugChannel.appendLine(`[DEBUG] Detection level: ${detectionLevel}`);
-    debugChannel.appendLine('[DEBUG] ✅ Diagnostics completed');
-}
-
-function registerCommands(context: vscode.ExtensionContext) {
     // Register test command to find SpecStory commands
     const findSpecStoryCommands = vscode.commands.registerCommand('specstoryautosave.findSpecStoryCommands', async () => {
         debugChannel.appendLine('[DEBUG] Finding SpecStory commands...');
@@ -412,262 +53,803 @@ function registerCommands(context: vscode.ExtensionContext) {
         }
     });
 
-    // Register force AI notification command
-    const forceAINotification = vscode.commands.registerCommand('specstoryautosave.forceAINotification', async (realPrompt?: string) => {
-        debugChannel.appendLine('[DEBUG] 🔧 FORCE TRIGGER: User manually triggered AI notification');
+    // Register test command to test SpecStory dialog
+    const testSpecStoryDialog = vscode.commands.registerCommand('specstoryautosave.testSpecStoryDialog', async () => {
+        debugChannel.appendLine('[DEBUG] Testing SpecStory dialog...');
         
-        if (realPrompt && realPrompt.length > 0) {
-            // Pokud máme skutečný prompt, přidáme ho přímo do Activity Bar
-            debugChannel.appendLine(`[DEBUG] 🎯 Adding REAL PROMPT directly to Activity Bar: "${realPrompt.substring(0, 100)}..."`);
+        try {
+            // Try to execute the SpecStory export command
+            const result = await vscode.commands.executeCommand('specstory.exportChatHistory');
+            debugChannel.appendLine(`[DEBUG] SpecStory command result: ${JSON.stringify(result)}`);
             
-            // Přidáme skutečný prompt přímo do Activity Bar (ne generickou zprávu)
-            await aiActivityProvider.addNotification(realPrompt);
+            // Monitor for dialogs/notifications that might appear
+            vscode.window.showInformationMessage('SpecStory command executed. Check for any dialog that appears.');
             
-            // Aktualizujeme counter a status bar
-            aiPromptCounter.value++;
-            lastDetectedTime.value = Date.now();
-            updateStatusBar(statusBarItem, aiPromptCounter);
-            
-            debugChannel.appendLine(`[DEBUG] ✅ REAL PROMPT added successfully! Counter: ${aiPromptCounter.value}`);
-        } else {
-            // Standardní cesta bez reálného promptu - použijeme generickou zprávu
-            handleAIActivity(aiPromptCounter, debugChannel, async () => {
-                const message = await generateSmartNotificationMessage(debugChannel);
-                await showAINotificationImmediately(message, aiActivityProvider, aiNotificationPanel, debugChannel, countdownTimer);
-            }, () => updateStatusBar(statusBarItem, aiPromptCounter), lastDetectedTime);
+        } catch (error) {
+            debugChannel.appendLine(`[ERROR] Failed to execute SpecStory command: ${error}`);
+            vscode.window.showErrorMessage(`SpecStory command failed: ${error}`);
         }
+    });
+
+    // Register basic test command
+    const testCommand = vscode.commands.registerCommand('specstoryautosave.test', () => {
+        debugChannel.appendLine('[DEBUG] Test command executed');
+        vscode.window.showInformationMessage('SpecStoryAutoSave test command works!');
+    });
+
+    // Register AI notification test command
+    const testAINotification = vscode.commands.registerCommand('specstoryautosave.testAINotification', () => {
+        debugChannel.appendLine('[DEBUG] MANUAL TEST: Simulating immediate AI notification...');
+        debugChannel.appendLine('[DEBUG] Note: This is a manual test, not triggered by real AI activity');
+        debugChannel.appendLine('[DEBUG] Testing vscode.window.showWarningMessage directly...');
+        
+        // Direct test of notification system
+        vscode.window.showWarningMessage('🧪 TEST NOTIFICATION: This is a test of the notification system', 'Test OK', 'Test Cancel').then((selection) => {
+            debugChannel.appendLine(`[DEBUG] TEST RESULT: User selected '${selection || 'DISMISSED'}'`);
+        }, (error: any) => {
+            debugChannel.appendLine(`[DEBUG] TEST ERROR: ${error}`);
+        });
+    });
+
+    // Register keyboard shortcut for AI notification (for testing)
+    const keyboardTrigger = vscode.commands.registerCommand('specstoryautosave.keyboardTrigger', () => {
+        debugChannel.appendLine('[DEBUG] 🎹 KEYBOARD TRIGGER: Simulating AI prompt detection');
+        handleAIActivity();
+    });
+
+    // Register force AI notification command (alternative method)
+    const forceAINotification = vscode.commands.registerCommand('specstoryautosave.forceAINotification', () => {
+        debugChannel.appendLine('[DEBUG] 🔧 FORCE TRIGGER: User manually triggered AI notification');
+        handleAIActivity();
+    });
+
+    // Register simple copilot detection test
+    const testCopilotDetection = vscode.commands.registerCommand('specstoryautosave.testCopilotDetection', async () => {
+        debugChannel.appendLine('[DEBUG] 🧪 TESTING COPILOT DETECTION...');
+        
+        // Try to trigger common copilot commands
+        try {
+            debugChannel.appendLine('[DEBUG] Testing chat panel focus...');
+            await vscode.commands.executeCommand('workbench.panel.chat.view.copilot.focus');
+            debugChannel.appendLine('[DEBUG] Chat panel focus command executed');
+        } catch (error) {
+            debugChannel.appendLine(`[DEBUG] Chat panel focus failed: ${error}`);
+        }
+        
+        // Test if this triggers our detection
+        setTimeout(() => {
+            debugChannel.appendLine('[DEBUG] 🧪 Test completed - check if notification appeared');
+        }, 1000);
     });
 
     // Register show prompt stats command
     const showPromptStats = vscode.commands.registerCommand('specstoryautosave.showPromptStats', () => {
-        const message = `AI Prompts detected: ${aiPromptCounter.value}`;
+        const message = `AI Prompts detected: ${aiPromptCounter}`;
         vscode.window.showInformationMessage(message);
         debugChannel.appendLine(`[DEBUG] ${message}`);
     });
 
     // Register reset counter command
     const resetCounter = vscode.commands.registerCommand('specstoryautosave.resetPromptCounter', () => {
-        aiPromptCounter.value = 0;
-        lastDetectedTime.value = 0;
-        updateStatusBar(statusBarItem, aiPromptCounter);
-        logDebug('AI prompt counter reset to 0');
-        vscode.window.showInformationMessage('AI prompt counter reset to 0');
+        aiPromptCounter = 0;
+        lastDetectedTime = 0;
+        promptHistory = []; // Also clear prompt history
+        updateStatusBar();
+        debugChannel.appendLine('[DEBUG] AI prompt counter reset to 0');
+        vscode.window.showInformationMessage('AI prompt counter and history reset');
     });
 
-    // Command to test SpecStory history detection
-    const testHistoryDetection = vscode.commands.registerCommand('specstoryautosave.testHistoryDetection', async () => {
-        logInfo('🔍 Testing SpecStory history detection...');
-        logDebug('🔍 MANUAL TEST: User requested SpecStory history detection test');
-        
-        try {
-            // Try to find SpecStory history automatically
-            const specstoryPath = await findSpecStoryHistoryPath();
-            
-            if (!specstoryPath) {
-                const message = 'SpecStory history folder not found. Make sure .specstory/history exists in your workspace.';
-                logError(message);
-                vscode.window.showErrorMessage(message);
-                return;
-            }
-
-            logInfo(`Found SpecStory history at: ${specstoryPath}`);
-            logDebug(`📁 History path detected: ${specstoryPath}`);
-            
-            // Trigger AI activity simulation for testing
-            logDebug('🎯 Simulating AI activity from history detection...');
-            handleAIActivity(aiPromptCounter, debugChannel, async () => {
-                const message = await generateSmartNotificationMessage(debugChannel);
-                await showAINotificationImmediately(message, aiActivityProvider, aiNotificationPanel, debugChannel, countdownTimer);
-            }, () => updateStatusBar(statusBarItem, aiPromptCounter), lastDetectedTime);
-            
-            vscode.window.showInformationMessage('SpecStory history detection test completed - check output for details');
-        } catch (error) {
-            logError(`Failed to test history detection: ${error}`);
-            vscode.window.showErrorMessage(`History detection test failed: ${error}`);
-        }
-    });
-
-    // Command to export chat history now
-    const exportNow = vscode.commands.registerCommand('specstoryautosave.exportNow', async () => {
-        logInfo('📤 Manual export chat history initiated...');
-        logExport('Manual export requested by user');
-        
-        try {
-            // Here would be the actual export logic
-            // For now, just simulate the export
-            const timestamp = new Date().toLocaleString();
-            const os = require('os');
-            const path = require('path');
-            const exportPath = path.join(os.tmpdir(), `specstory-export-${Date.now()}.md`);
-            
-            logExport(`Export started at ${timestamp}`);
-            logExport(`Target path: ${exportPath}`);
-            
-            // Simulate export process
-            await new Promise(resolve => setTimeout(resolve, 1000));
-            
-            logExport('✅ Chat history exported successfully');
-            logInfo('✅ Chat history exported successfully');
-            
-            vscode.window.showInformationMessage('Chat history exported successfully - check Export output for details');
-        } catch (error) {
-            logExport(`❌ Export failed: ${error}`);
-            logError(`Export failed: ${error}`);
-            vscode.window.showErrorMessage(`Export failed: ${error}`);
-        }
-    });
-
-    // Simple test command for Enter detection
-    const testEnterDetection = vscode.commands.registerCommand('specstoryautosave.testEnterDetection', () => {
-        debugChannel.appendLine('🔍 === SIMPLE ENTER DETECTION TEST ===');
-        const activeEditor = vscode.window.activeTextEditor;
-        if (activeEditor) {
-            debugChannel.appendLine(`Current editor scheme: ${activeEditor.document.uri.scheme}`);
-            debugChannel.appendLine(`Language: ${activeEditor.document.languageId}`);
-            debugChannel.appendLine(`Is Copilot Chat: ${activeEditor.document.uri.scheme === 'chat-editing-snapshot-text-model'}`);
-        } else {
-            debugChannel.appendLine('No active editor');
-        }
-        
-        vscode.window.showInformationMessage('Enter detection test logged to output panel');
-    });
-
-    // Test command for file system detection
-    const testFileSystemDetection = vscode.commands.registerCommand('specstoryautosave.testFileSystemDetection', () => {
-        debugChannel.appendLine('🔍 === FILE SYSTEM DETECTION TEST ===');
-        const config = vscode.workspace.getConfiguration('specstoryautosave');
-        const detectionLevel = config.get<string>('detectionLevel', 'basic');
-        const enableFileSystem = config.get<boolean>('enableFileSystemDetection', false);
-        
-        debugChannel.appendLine(`Detection level: ${detectionLevel}`);
-        debugChannel.appendLine(`File system detection enabled: ${enableFileSystem}`);
-        
-        // Test SpecStory path detection
-        findSpecStoryHistoryPath().then(path => {
-            if (path) {
-                debugChannel.appendLine(`SpecStory history path: ${path}`);
-            } else {
-                debugChannel.appendLine('SpecStory history path not found');
-            }
-        });
-        
-        vscode.window.showInformationMessage('File system detection test logged to output panel');
-    });
-
-    // Command triggered by Enter key in Copilot Chat
-    const detectEnterInChat = vscode.commands.registerCommand('specstoryautosave.detectEnterInChat', () => {
-        const activeEditor = vscode.window.activeTextEditor;
-        if (activeEditor && activeEditor.document.uri.scheme === 'chat-editing-snapshot-text-model') {
-            debugChannel.appendLine('⚡ ENTER KEY BINDING TRIGGERED in Copilot Chat!');
-            handleAIActivity(aiPromptCounter, debugChannel, async () => {
-                const message = await generateSmartNotificationMessage(debugChannel);
-                await showAINotificationImmediately(message, aiActivityProvider, aiNotificationPanel, debugChannel, countdownTimer);
-            }, () => updateStatusBar(statusBarItem, aiPromptCounter), lastDetectedTime);
-        }
-    });
-
-    // Debug command for testing advanced detection
-    const debugAdvancedDetection = vscode.commands.registerCommand('specstoryautosave.debugAdvancedDetection', () => {
-        debugChannel.appendLine('🔍 === ADVANCED DETECTION DEBUG ===');
-        debugChannel.appendLine(`Last activity detected: ${aiPromptCounter} prompts total`);
-        debugChannel.appendLine(`Current editor: ${vscode.window.activeTextEditor?.document.uri.scheme || 'none'}`);
-        debugChannel.appendLine(`Language: ${vscode.window.activeTextEditor?.document.languageId || 'none'}`);
-        debugChannel.appendLine(`Path: ${vscode.window.activeTextEditor?.document.uri.path || 'none'}`);
-        
-        // Show available chat commands
-        vscode.commands.getCommands(true).then(commands => {
-            const chatCommands = commands.filter(cmd => 
-                cmd.includes('chat') || cmd.includes('copilot') || cmd.includes('interactive')
-            ).slice(0, 10); // Show first 10
-            debugChannel.appendLine(`Chat commands found: ${chatCommands.join(', ')}`);
-        });
-        
-        vscode.window.showInformationMessage('Advanced detection debug info logged to output panel');
-    });
+    // Register export prompt history command
+    const exportPrompts = vscode.commands.registerCommand('specstoryautosave.exportPromptHistory', exportPromptHistory);
 
     // Add commands to context
     context.subscriptions.push(findSpecStoryCommands);
+    context.subscriptions.push(testSpecStoryDialog);
+    context.subscriptions.push(testCommand);
+    context.subscriptions.push(testAINotification);
+    context.subscriptions.push(keyboardTrigger);
     context.subscriptions.push(forceAINotification);
+    context.subscriptions.push(testCopilotDetection);
     context.subscriptions.push(showPromptStats);
     context.subscriptions.push(resetCounter);
-    context.subscriptions.push(testHistoryDetection);
-    context.subscriptions.push(exportNow);
-    context.subscriptions.push(testEnterDetection);
-    context.subscriptions.push(testFileSystemDetection);
-    context.subscriptions.push(detectEnterInChat);
-    context.subscriptions.push(debugAdvancedDetection);
+    context.subscriptions.push(exportPrompts);
     context.subscriptions.push(outputChannel);
     context.subscriptions.push(debugChannel);
-    context.subscriptions.push(exportChannel);
     
-    logDebug('All commands registered successfully');
+    debugChannel.appendLine('[DEBUG] All commands registered successfully');
 }
 
-function setupAutoSaveIntervals() {
+function initializeCopilotMonitoring() {
     const config = vscode.workspace.getConfiguration('specstoryautosave');
-    const enableAutoSave = config.get<boolean>('enableAutoSave', true);
-    const intervalMinutes = config.get<number>('autoSaveInterval', 5);
+    const detectionLevel = config.get<string>('detectionLevel', 'off'); // 'off', 'basic', 'advanced', 'aggressive'
     
-    if (!enableAutoSave) {
-        logInfo('Auto-save is disabled in settings');
+    // Individual detection method settings (all default to false)
+    const enableCommandHook = config.get<boolean>('enableCommandHookDetection', false);
+    const enableWebview = config.get<boolean>('enableWebviewDetection', false);
+    const enablePanelFocus = config.get<boolean>('enablePanelFocusDetection', false);
+    const enablePattern = config.get<boolean>('enablePatternDetection', false);
+    const enableCodeInsertion = config.get<boolean>('enableCodeInsertionDetection', false);
+    const enableMemory = config.get<boolean>('enableMemoryDetection', false);
+    const enableTerminal = config.get<boolean>('enableTerminalDetection', false);
+    const enableFileSystem = config.get<boolean>('enableFileSystemDetection', false);
+    const enableKeyboardActivity = config.get<boolean>('enableKeyboardActivityDetection', false);
+    
+    debugChannel.appendLine(`[DEBUG] Initializing Copilot monitoring - Level: ${detectionLevel}`);
+    debugChannel.appendLine(`[DEBUG] Individual settings: CommandHook=${enableCommandHook}, Webview=${enableWebview}, PanelFocus=${enablePanelFocus}, Pattern=${enablePattern}, CodeInsertion=${enableCodeInsertion}, Memory=${enableMemory}, Terminal=${enableTerminal}, FileSystem=${enableFileSystem}, KeyboardActivity=${enableKeyboardActivity}`);
+    
+    if (detectionLevel === 'off' && !enableCommandHook && !enableWebview && !enablePanelFocus && !enablePattern && !enableCodeInsertion && !enableMemory && !enableTerminal && !enableFileSystem && !enableKeyboardActivity) {
+        debugChannel.appendLine('[DEBUG] All detection is OFF - no monitoring will be performed');
+        debugChannel.appendLine('[DEBUG] 💡 To enable detection, change detectionLevel or enable individual detection methods in settings');
         return;
     }
-    
-    logInfo(`Setting up auto-save interval: ${intervalMinutes} minutes`);
-    logExport(`Auto-save configured: every ${intervalMinutes} minutes`);
-    
-    // Clear existing timer if any
-    if (autoSaveTimer.value) {
-        clearInterval(autoSaveTimer.value);
-    }
-    
-    // Set up new timer
-    autoSaveTimer.value = setInterval(async () => {
-        logExport('🔄 Auto-save interval triggered');
-        
-        try {
-            // Simulate export process
-            const timestamp = new Date().toLocaleString();
-            const os = require('os');
-            const path = require('path');
-            const exportPath = path.join(os.tmpdir(), `specstory-autosave-${Date.now()}.md`);
-            
-            logExport(`Auto-export started at ${timestamp}`);
-            logExport(`Target path: ${exportPath}`);
-            
-            // Here would be the actual export logic
-            await new Promise(resolve => setTimeout(resolve, 500));
-            
-            logExport('✅ Auto-export completed successfully');
-            logInfo('✅ Auto-export completed successfully');
-            
-        } catch (error) {
-            logExport(`❌ Auto-export failed: ${error}`);
-            logError(`Auto-export failed: ${error}`);
-        }
-    }, intervalMinutes * 60 * 1000); // Convert minutes to milliseconds
-    
-    logDebug(`Auto-save timer set for ${intervalMinutes} minutes`);
-}
 
-// Listen for configuration changes to update auto-save intervals
-function setupConfigurationListener() {
-    vscode.workspace.onDidChangeConfiguration((event) => {
-        if (event.affectsConfiguration('specstoryautosave.enableAutoSave') || 
-            event.affectsConfiguration('specstoryautosave.autoSaveInterval')) {
-            logInfo('Auto-save configuration changed - updating intervals');
-            setupAutoSaveIntervals();
+    // Try to activate Copilot extensions first
+    activateCopilotExtensions().then(() => {
+        // Initialize detection methods based on individual settings OR detection level
+        const shouldUseCommandHook = enableCommandHook || (detectionLevel === 'basic' || detectionLevel === 'advanced' || detectionLevel === 'aggressive');
+        const shouldUseWebview = enableWebview || (detectionLevel === 'basic' || detectionLevel === 'advanced' || detectionLevel === 'aggressive');
+        const shouldUsePanelFocus = enablePanelFocus || (detectionLevel === 'advanced' || detectionLevel === 'aggressive');
+        const shouldUsePattern = enablePattern || (detectionLevel === 'advanced' || detectionLevel === 'aggressive');
+        const shouldUseCodeInsertion = enableCodeInsertion || (detectionLevel === 'aggressive');
+        const shouldUseMemory = enableMemory || (detectionLevel === 'aggressive');
+        const shouldUseTerminal = enableTerminal; // Only when explicitly enabled
+        const shouldUseFileSystem = enableFileSystem; // Only when explicitly enabled  
+        const shouldUseKeyboardActivity = enableKeyboardActivity; // Only when explicitly enabled
+        
+        if (shouldUseCommandHook || shouldUseWebview || shouldUsePanelFocus) {
+            initializeBasicDetection(shouldUseCommandHook, shouldUseWebview, shouldUsePanelFocus);
         }
+        
+        if (shouldUsePattern) {
+            initializeAdvancedDetection();
+        }
+        
+        if (shouldUseCodeInsertion || shouldUseMemory) {
+            initializeAggressiveDetection(shouldUseCodeInsertion, shouldUseMemory, shouldUseTerminal, shouldUseFileSystem, shouldUseKeyboardActivity);
+        }
+        
+        // Diagnostics after activation attempts
+        setTimeout(async () => {
+            await performDiagnostics(detectionLevel);
+        }, 5000);
     });
 }
 
-export function deactivate() {
-    if (countdownTimer.value) {
-        clearInterval(countdownTimer.value);
+async function activateCopilotExtensions() {
+    debugChannel.appendLine('[DEBUG] 🔄 Attempting to activate Copilot extensions...');
+    
+    try {
+        // Try to get and activate GitHub Copilot
+        const copilotExt = vscode.extensions.getExtension('GitHub.copilot');
+        if (copilotExt && !copilotExt.isActive) {
+            debugChannel.appendLine('[DEBUG] 🔄 Activating GitHub Copilot...');
+            await copilotExt.activate();
+            debugChannel.appendLine('[DEBUG] ✅ GitHub Copilot activation attempted');
+        }
+        
+        // Try to get and activate GitHub Copilot Chat
+        const copilotChatExt = vscode.extensions.getExtension('GitHub.copilot-chat');
+        if (copilotChatExt && !copilotChatExt.isActive) {
+            debugChannel.appendLine('[DEBUG] 🔄 Activating GitHub Copilot Chat...');
+            await copilotChatExt.activate();
+            debugChannel.appendLine('[DEBUG] ✅ GitHub Copilot Chat activation attempted');
+        }
+        
+        // Wait a bit for activation to complete
+        await new Promise(resolve => setTimeout(resolve, 2000));
+        
+    } catch (error) {
+        debugChannel.appendLine(`[DEBUG] ⚠️ Copilot activation error (this is expected in Extension Development Host): ${error}`);
     }
-    if (autoSaveTimer.value) {
-        clearInterval(autoSaveTimer.value);
-        logExport('Auto-save timer stopped');
+    
+    debugChannel.appendLine('[DEBUG] 🔄 Copilot activation phase completed');
+}
+
+async function performDiagnostics(detectionLevel: string) {
+    try {
+        const allCommands = await vscode.commands.getCommands(true);
+        const copilotCommands = allCommands.filter(cmd => 
+            cmd.toLowerCase().includes('copilot') || 
+            cmd.toLowerCase().includes('github.copilot')
+        );
+        
+        debugChannel.appendLine(`[DEBUG] 📋 Found ${copilotCommands.length} Copilot commands`);
+        if (copilotCommands.length > 0) {
+            debugChannel.appendLine(`[DEBUG] 📋 Examples: ${copilotCommands.slice(0, 3).join(', ')}`);
+        }
+        
+        const copilotExt = vscode.extensions.getExtension('GitHub.copilot');
+        const copilotChatExt = vscode.extensions.getExtension('GitHub.copilot-chat');
+        
+        debugChannel.appendLine(`[DEBUG] 🔌 GitHub Copilot: ${copilotExt?.isActive ? 'ACTIVE' : 'INACTIVE'}`);
+        debugChannel.appendLine(`[DEBUG] 🔌 GitHub Copilot Chat: ${copilotChatExt?.isActive ? 'ACTIVE' : 'INACTIVE'}`);
+        
+        // If still inactive, provide helpful message
+        if (!copilotExt?.isActive && !copilotChatExt?.isActive) {
+            debugChannel.appendLine('[DEBUG] ⚠️ Copilot extensions are still inactive.');
+            debugChannel.appendLine('[DEBUG] 💡 This is normal in Extension Development Host.');
+            debugChannel.appendLine('[DEBUG] 💡 Try using the extension in your main VS Code window, or');
+            debugChannel.appendLine('[DEBUG] 💡 use the manual test: Ctrl+Shift+P → "SpecStoryAutoSave: Force AI Notification"');
+        }
+        
+    } catch (error) {
+        debugChannel.appendLine(`[DEBUG] ❌ Diagnostics error: ${error}`);
+    }
+    
+    debugChannel.appendLine(`[DEBUG] ✅ Monitoring initialized - Level: ${detectionLevel}`);
+}
+
+function initializeBasicDetection(enableCommandHook: boolean = true, enableWebview: boolean = true, enablePanelFocus: boolean = true) {
+    debugChannel.appendLine(`[DEBUG] 🎯 Initializing BASIC detection - CommandHook: ${enableCommandHook}, Webview: ${enableWebview}, PanelFocus: ${enablePanelFocus}`);
+    
+    // Method 1: Monitor chat panel visibility and focus (if enabled)
+    if (enableWebview) {
+        const disposable1 = vscode.window.onDidChangeActiveTextEditor((editor) => {
+            if (!editor) return;
+            
+            const uri = editor.document.uri.toString();
+            debugChannel.appendLine(`[DEBUG] 📝 Active editor: ${uri}`);
+            
+            // Detect Copilot Chat webview panels
+            if (uri.includes('webview-panel') && uri.includes('copilot')) {
+                debugChannel.appendLine(`[DEBUG] 🎯 COPILOT CHAT PANEL DETECTED: ${uri}`);
+                
+                const now = Date.now();
+                if (now - lastDetectedTime > 1000) {
+                    lastDetectedTime = now;
+                    debugChannel.appendLine('[DEBUG] 🚀 BASIC WEBVIEW DETECTION!');
+                    handleAIActivity();
+                }
+            }
+        });
+    }
+    
+    // Method 2: Monitor panel state changes (if enabled)
+    if (enablePanelFocus) {
+        const disposable2 = vscode.window.onDidChangeWindowState((state) => {
+            if (state.focused) {
+                debugChannel.appendLine('[DEBUG] 🖼️ Window focus changed - checking for chat activity');
+                
+                // Check if any chat-related commands are available
+                vscode.commands.getCommands(true).then(commands => {
+                    const activeChatCommands = commands.filter(cmd => 
+                        cmd.includes('github.copilot-chat') || 
+                        cmd.includes('workbench.panel.chat.view.copilot')
+                    );
+                    
+                    if (activeChatCommands.length > 0) {
+                        debugChannel.appendLine(`[DEBUG] 💬 Found ${activeChatCommands.length} active chat commands`);
+                    }
+                });
+            }
+        });
+    }
+    
+    // Method 3: Try command hook (if enabled)
+    if (enableCommandHook) {
+        try {
+            const originalExecuteCommand = vscode.commands.executeCommand;
+            
+            (vscode.commands as any).executeCommand = async function(command: string, ...args: any[]) {
+                const cmd = command.toLowerCase();
+                
+                // Only log specific commands to reduce noise
+                if (cmd.includes('copilot') || cmd.includes('chat')) {
+                    debugChannel.appendLine(`[DEBUG] 🔧 COMMAND: ${command}`);
+                    
+                    // Copilot command detection
+                    if (cmd.startsWith('github.copilot') || 
+                        cmd.includes('copilot-chat') ||
+                        cmd.includes('chat.send') ||
+                        cmd === 'workbench.panel.chat.view.copilot.focus') {
+                        
+                        debugChannel.appendLine(`[DEBUG] 🎯 COPILOT COMMAND: ${command}`);
+                        
+                        const now = Date.now();
+                        if (now - lastDetectedTime > 500) {
+                            lastDetectedTime = now;
+                            debugChannel.appendLine('[DEBUG] 🚀 COMMAND HOOK DETECTION!');
+                            handleAIActivity();
+                        }
+                    }
+                }
+                
+                return originalExecuteCommand.apply(this, [command, ...args]);
+            };
+            
+            debugChannel.appendLine('[DEBUG] ✅ Command hook attempted (may not work in dev host)');
+        } catch (error) {
+            debugChannel.appendLine(`[DEBUG] ⚠️ Command hook failed: ${error}`);
+        }
+    }
+    
+    debugChannel.appendLine('[DEBUG] ✅ Basic detection with selected methods installed');
+    debugChannel.appendLine('[DEBUG] 💡 If automatic detection fails, use Ctrl+Shift+P → "SpecStoryAutoSave: Force AI Notification"');
+
+    // Method 2: Monitor panel state changes
+    const disposable2 = vscode.window.onDidChangeWindowState((state) => {
+        if (state.focused) {
+            debugChannel.appendLine('[DEBUG] �️ Window focus changed - checking for chat activity');
+            
+            // Check if any chat-related commands are available
+            vscode.commands.getCommands(true).then(commands => {
+                const activeChatCommands = commands.filter(cmd => 
+                    cmd.includes('github.copilot-chat') || 
+                    cmd.includes('workbench.panel.chat.view.copilot')
+                );
+                
+                if (activeChatCommands.length > 0) {
+                    debugChannel.appendLine(`[DEBUG] 💬 Found ${activeChatCommands.length} active chat commands`);
+                }
+            });
+        }
+    });
+    
+    // Method 3: Try command hook (may not work in Extension Development Host)
+    try {
+        const originalExecuteCommand = vscode.commands.executeCommand;
+        
+        (vscode.commands as any).executeCommand = async function(command: string, ...args: any[]) {
+            const cmd = command.toLowerCase();
+            
+            // Only log specific commands to reduce noise
+            if (cmd.includes('copilot') || cmd.includes('chat')) {
+                debugChannel.appendLine(`[DEBUG] 🔧 COMMAND: ${command}`);
+                
+                // Copilot command detection
+                if (cmd.startsWith('github.copilot') || 
+                    cmd.includes('copilot-chat') ||
+                    cmd.includes('chat.send') ||
+                    cmd === 'workbench.panel.chat.view.copilot.focus') {
+                    
+                    debugChannel.appendLine(`[DEBUG] 🎯 COPILOT COMMAND: ${command}`);
+                    
+                    const now = Date.now();
+                    if (now - lastDetectedTime > 500) {
+                        lastDetectedTime = now;
+                        debugChannel.appendLine('[DEBUG] 🚀 COMMAND HOOK DETECTION!');
+                        handleAIActivity();
+                    }
+                }
+            }
+            
+            return originalExecuteCommand.apply(this, [command, ...args]);
+        };
+        
+        debugChannel.appendLine('[DEBUG] ✅ Command hook attempted (may not work in dev host)');
+    } catch (error) {
+        debugChannel.appendLine(`[DEBUG] ⚠️ Command hook failed: ${error}`);
+    }
+    
+    debugChannel.appendLine('[DEBUG] ✅ Basic detection with multiple fallback methods installed');
+    debugChannel.appendLine('[DEBUG] 💡 If automatic detection fails, use Ctrl+Shift+P → "SpecStoryAutoSave: Force AI Notification"');
+}
+
+function initializeAdvancedDetection() {
+    debugChannel.appendLine('[DEBUG] 🔍 Initializing ADVANCED detection (panels + patterns)...');
+    
+    // Enhanced webview detection for Copilot Chat
+    vscode.window.onDidChangeActiveTextEditor((editor) => {
+        if (!editor) return;
+        
+        const uri = editor.document.uri;
+        const scheme = uri.scheme;
+        const path = uri.path;
+        const fullUri = uri.toString();
+        
+        debugChannel.appendLine(`[DEBUG] 👁️ Editor changed: ${scheme}:${path}`);
+        
+        // Skip our own debug channels
+        if (path.includes('SpecStoryAutoSave') || scheme === 'output') {
+            return;
+        }
+        
+        // Enhanced detection for webview-based chat
+        if (scheme === 'webview-panel' || 
+            fullUri.includes('copilot') ||
+            fullUri.includes('chat') ||
+            scheme.includes('copilot') || 
+            scheme.includes('webview') ||
+            path.includes('copilot') ||
+            path.includes('chat')) {
+            
+            debugChannel.appendLine(`[DEBUG] 👁️ POTENTIAL COPILOT PANEL: ${fullUri}`);
+            
+            const now = Date.now();
+            if (now - lastDetectedTime > 3000) {
+                lastDetectedTime = now;
+                debugChannel.appendLine('[DEBUG] 🚀 ADVANCED WEBVIEW DETECTION!');
+                handleAIActivity();
+            }
+        }
+    });
+    
+    // Webview and keyboard detection
+    vscode.window.onDidChangeActiveTextEditor((editor) => {
+        if (!editor) return;
+        
+        const uri = editor.document.uri;
+        const scheme = uri.scheme;
+        const path = uri.path;
+        const fullUri = uri.toString();
+        
+        debugChannel.appendLine(`[DEBUG] �️ Editor changed: ${scheme}:${path}`);
+    });
+    
+    // Document pattern detection (with filtering)
+    vscode.workspace.onDidChangeTextDocument((event) => {
+        const uri = event.document.uri.toString();
+        const content = event.document.getText();
+        
+        // Skip our own channels and non-relevant documents
+        if (uri.includes('extension-output') || 
+            uri.includes('SpecStoryAutoSave') ||
+            uri.includes('output:')) {
+            return;
+        }
+        
+        // Look for AI patterns in relevant documents
+        if (uri.includes('copilot') || 
+            uri.includes('chat') ||
+            (uri.includes('webview') && !uri.includes('extension-output'))) {
+            
+            const aiPatterns = [
+                /ccreq:/i,
+                /github[\s\-_]?copilot/i,
+                /user:\s*\n/i,
+                /assistant:\s*\n/i,
+                /requestId:/i,
+                /finish\s+reason:/i,
+                /GitHub\s+Copilot/i,
+                /@workspace/i,
+                /@terminal/i
+            ];
+            
+            const hasAIPattern = aiPatterns.some(pattern => pattern.test(content));
+            
+            if (hasAIPattern && content.length > 10) {
+                debugChannel.appendLine(`[DEBUG] 🔍 AI PATTERN in: ${uri.substring(0, 50)}...`);
+                
+                const now = Date.now();
+                if (now - lastDetectedTime > 2000) {
+                    lastDetectedTime = now;
+                    debugChannel.appendLine('[DEBUG] 🔍 AI PATTERN DETECTED!');
+                    debugChannel.appendLine('[DEBUG] 🚀 ADVANCED PATTERN DETECTION!');
+                    handleAIActivity();
+                }
+            }
+        }
+    });
+    
+    debugChannel.appendLine('[DEBUG] ✅ Advanced detection with webview hooks installed');
+}
+
+function initializeAggressiveDetection(shouldUseCodeInsertion: boolean = false, shouldUseMemory: boolean = false, shouldUseTerminal: boolean = false, shouldUseFileSystem: boolean = false, shouldUseKeyboardActivity: boolean = false) {
+    debugChannel.appendLine('[DEBUG] ⚡ Initializing AGGRESSIVE detection (all methods)...');
+    
+    const config = vscode.workspace.getConfiguration('specstoryautosave');
+    const enableCodeDetection = shouldUseCodeInsertion || config.get<boolean>('enableCodeInsertionDetection', false);
+    
+    if (enableCodeDetection) {
+        // Code insertion detection
+        let documentVersions = new Map<string, { version: number, length: number }>();
+        
+        vscode.workspace.onDidChangeTextDocument((event) => {
+            const uri = event.document.uri.toString();
+            
+            // Skip debug channels
+            if (uri.includes('extension-output') || uri.includes('SpecStoryAutoSave')) {
+                return;
+            }
+            
+            const currentLength = event.document.getText().length;
+            const currentVersion = event.document.version;
+            
+            const previous = documentVersions.get(uri);
+            if (previous) {
+                const lengthDiff = currentLength - previous.length;
+                const versionDiff = currentVersion - previous.version;
+                
+                // Large text insertion (AI completion)
+                if (lengthDiff > 100 && versionDiff === 1) {
+                    debugChannel.appendLine(`[DEBUG] 📈 Large text insertion: +${lengthDiff} chars`);
+                    
+                    const now = Date.now();
+                    if (now - lastDetectedTime > 2000) {
+                        lastDetectedTime = now;
+                        debugChannel.appendLine('[DEBUG] 🚀 AGGRESSIVE CODE DETECTION!');
+                        handleAIActivity();
+                    }
+                }
+            }
+            
+            documentVersions.set(uri, { version: currentVersion, length: currentLength });
+        });
+        
+        debugChannel.appendLine('[DEBUG] 📝 Code insertion detection enabled');
+    }
+    
+    // Memory monitoring (less aggressive than before)
+    if (shouldUseMemory) {
+        let lastMemoryCheck = process.memoryUsage().heapUsed;
+        let consecutiveSpikes = 0;
+        
+        setInterval(() => {
+            try {
+                const currentMemory = process.memoryUsage().heapUsed;
+                const memoryIncrease = currentMemory - lastMemoryCheck;
+                
+                if (memoryIncrease > 50000000) { // 50MB increase
+                    consecutiveSpikes++;
+                    
+                    if (consecutiveSpikes >= 3) {
+                        debugChannel.appendLine(`[DEBUG] 🧠 Sustained memory activity: +${Math.round(memoryIncrease/1000000)}MB`);
+                        
+                        const now = Date.now();
+                        if (now - lastDetectedTime > 10000) {
+                            lastDetectedTime = now;
+                            debugChannel.appendLine('[DEBUG] 🚀 AGGRESSIVE MEMORY DETECTION!');
+                            handleAIActivity();
+                        }
+                        consecutiveSpikes = 0;
+                    }
+                } else {
+                    consecutiveSpikes = Math.max(0, consecutiveSpikes - 1);
+                }
+                
+                lastMemoryCheck = currentMemory;
+            } catch (error) {
+                // Ignore memory errors
+            }
+        }, 5000);
+        
+        debugChannel.appendLine('[DEBUG] 🧠 Memory monitoring enabled');
+    }
+    
+    // Terminal activity detection
+    if (shouldUseTerminal) {
+        vscode.window.onDidOpenTerminal((terminal) => {
+            debugChannel.appendLine('[DEBUG] 📟 Terminal opened - checking for AI activity');
+            const now = Date.now();
+            if (now - lastDetectedTime > 3000) {
+                lastDetectedTime = now;
+                debugChannel.appendLine('[DEBUG] 🚀 TERMINAL DETECTION!');
+                handleAIActivity();
+            }
+        });
+        
+        vscode.window.onDidCloseTerminal((terminal) => {
+            debugChannel.appendLine('[DEBUG] 📟 Terminal closed - checking for AI activity');
+            const now = Date.now();
+            if (now - lastDetectedTime > 3000) {
+                lastDetectedTime = now;
+                debugChannel.appendLine('[DEBUG] 🚀 TERMINAL CLOSE DETECTION!');
+                handleAIActivity();
+            }
+        });
+        
+        debugChannel.appendLine('[DEBUG] 📟 Terminal monitoring enabled');
+    }
+    
+    // File system activity detection
+    if (shouldUseFileSystem) {
+        const fileWatcher = vscode.workspace.createFileSystemWatcher('**/*');
+        let fileChangeCount = 0;
+        let fileChangeTimer: NodeJS.Timeout | undefined;
+        
+        const onFileChange = () => {
+            fileChangeCount++;
+            
+            if (fileChangeTimer) {
+                clearTimeout(fileChangeTimer);
+            }
+            
+            fileChangeTimer = setTimeout(() => {
+                if (fileChangeCount >= 3) { // Multiple file changes in short time
+                    const now = Date.now();
+                    if (now - lastDetectedTime > 2000) {
+                        lastDetectedTime = now;
+                        debugChannel.appendLine(`[DEBUG] 🚀 FILE SYSTEM DETECTION! (${fileChangeCount} changes)`);
+                        handleAIActivity();
+                    }
+                }
+                fileChangeCount = 0;
+            }, 1000);
+        };
+        
+        fileWatcher.onDidCreate(onFileChange);
+        fileWatcher.onDidChange(onFileChange);
+        fileWatcher.onDidDelete(onFileChange);
+        
+        debugChannel.appendLine('[DEBUG] 📁 File system monitoring enabled');
+    }
+    
+    // Keyboard activity detection
+    if (shouldUseKeyboardActivity) {
+        let keyPressCount = 0;
+        let keyPressTimer: NodeJS.Timeout | undefined;
+        
+        vscode.workspace.onDidChangeTextDocument((e) => {
+            if (e.contentChanges.length > 0) {
+                const totalChars = e.contentChanges.reduce((sum, change) => sum + change.text.length, 0);
+                
+                // Only detect very large insertions (typical for AI code generation)
+                if (totalChars > 200) { // Much higher threshold - AI typically generates lots of code at once
+                    keyPressCount += totalChars;
+                    
+                    if (keyPressTimer) {
+                        clearTimeout(keyPressTimer);
+                    }
+                    
+                    keyPressTimer = setTimeout(() => {
+                        if (keyPressCount > 500) { // Very large amount of text - likely AI generated
+                            const now = Date.now();
+                            if (now - lastDetectedTime > 5000) { // Longer cooldown to prevent spam
+                                lastDetectedTime = now;
+                                debugChannel.appendLine(`[DEBUG] 🚀 KEYBOARD ACTIVITY DETECTION! (${keyPressCount} chars)`);
+                                handleAIActivity();
+                            }
+                        }
+                        keyPressCount = 0;
+                    }, 2000); // Longer timeout to accumulate more changes
+                }
+            }
+        });
+        
+        debugChannel.appendLine('[DEBUG] ⌨️ Keyboard activity monitoring enabled');
+    }
+    
+    debugChannel.appendLine('[DEBUG] ✅ Aggressive detection installed');
+}
+
+function handleAIActivity() {
+    aiPromptCounter++;
+    const config = vscode.workspace.getConfiguration('specstoryautosave');
+    const enableNotifications = config.get<boolean>('enableAICheckNotifications', true);
+    const frequency = config.get<number>('aiNotificationFrequency', 1);
+    
+    debugChannel.appendLine(`[DEBUG] AI activity detected! Counter: ${aiPromptCounter}`);
+    debugChannel.appendLine(`[DEBUG] Notifications enabled: ${enableNotifications}, Frequency: ${frequency}`);
+    
+    // Log this prompt activity
+    logPromptActivity('AI Detection', `Prompt #${aiPromptCounter}`);
+    
+    if (enableNotifications && (aiPromptCounter % frequency === 0)) {
+        debugChannel.appendLine(`[DEBUG] Will show notification (counter ${aiPromptCounter} matches frequency ${frequency})`);
+        showAINotificationImmediately();
+    } else {
+        debugChannel.appendLine(`[DEBUG] Notification skipped - notifications: ${enableNotifications}, counter: ${aiPromptCounter}, frequency: ${frequency}`);
+    }
+    
+    updateStatusBar();
+}
+
+function showAINotificationImmediately() {
+    const config = vscode.workspace.getConfiguration('specstoryautosave');
+    const defaultMessage = 'AI prompt detected! Please check:\n• Did AI understand your question correctly?\n• If working with HTML, inspect for invisible elements\n• Verify the response quality and accuracy';
+    let message = config.get<string>('aiNotificationMessage', defaultMessage);
+    
+    // Ensure message is not empty and has proper content
+    if (!message || message.trim().length === 0) {
+        message = defaultMessage;
+    }
+    
+    debugChannel.appendLine('[DEBUG] Showing AI notification immediately');
+    debugChannel.appendLine(`[DEBUG] Message length: ${message.length}`);
+    debugChannel.appendLine(`[DEBUG] Message content: "${message}"`);
+    
+    // Clear any existing countdown
+    if (countdownTimer) {
+        clearInterval(countdownTimer);
+        countdownTimer = undefined;
+    }
+    
+    // Try both showWarningMessage and showInformationMessage as fallback
+    debugChannel.appendLine('[DEBUG] About to call vscode.window.showWarningMessage...');
+    
+    // Primary notification method
+    const notificationPromise = vscode.window.showWarningMessage(message, 'Everything OK', 'Will Check Status');
+    
+    // Fallback with Information message after 2 seconds if no response
+    const fallbackTimer = setTimeout(() => {
+        debugChannel.appendLine('[DEBUG] Warning message might not have shown, trying Information message fallback...');
+        vscode.window.showInformationMessage(`🤖 ${message}`, 'Got it!', 'Will Check').then((fallbackSelection) => {
+            debugChannel.appendLine(`[DEBUG] Fallback notification result: ${fallbackSelection || 'DISMISSED'}`);
+        });
+    }, 2000);
+    
+    debugChannel.appendLine('[DEBUG] showWarningMessage called, waiting for response...');
+    
+    notificationPromise.then((selection) => {
+        clearTimeout(fallbackTimer); // Cancel fallback if primary worked
+        debugChannel.appendLine(`[DEBUG] User selected: ${selection || 'DISMISSED'}`);
+        if (selection === 'Everything OK') {
+            debugChannel.appendLine('[DEBUG] User confirmed AI response is correct - everything OK');
+        } else if (selection === 'Will Check Status') {
+            debugChannel.appendLine('[DEBUG] User will check the AI response status');
+        } else {
+            debugChannel.appendLine('[DEBUG] User dismissed notification without selecting');
+        }
+        debugChannel.appendLine('[DEBUG] AI notification dismissed');
+    }, (error: any) => {
+        clearTimeout(fallbackTimer);
+        debugChannel.appendLine(`[DEBUG] ERROR in notification promise: ${error}`);
+    });
+    
+    // Update status bar to show detection
+    statusBarItem.text = `$(robot) AI: ${aiPromptCounter} (Latest!)`;
+    statusBarItem.backgroundColor = new vscode.ThemeColor('statusBarItem.warningBackground');
+    statusBarItem.show();
+    
+    // Reset status bar color after 3 seconds
+    setTimeout(() => {
+        updateStatusBar();
+    }, 3000);
+}
+
+function updateStatusBar() {
+    if (!countdownTimer) {
+        statusBarItem.text = `$(robot) AI: ${aiPromptCounter}`;
+        statusBarItem.backgroundColor = undefined;
+        statusBarItem.show();
+    }
+}
+
+function logPromptActivity(detectionMethod: string, context?: string) {
+    const timestamp = new Date().toISOString().substring(0, 19).replace('T', ' ');
+    let promptSummary = `${detectionMethod}`;
+    
+    if (context) {
+        // Extract first 50 characters as prompt summary
+        const shortContext = context.substring(0, 50).replace(/\n/g, ' ').trim();
+        promptSummary += ` - ${shortContext}...`;
+    }
+    
+    const logEntry = `${timestamp} - ${promptSummary}`;
+    promptHistory.push(logEntry);
+    
+    // Keep only last 1000 entries
+    if (promptHistory.length > MAX_PROMPT_HISTORY) {
+        promptHistory = promptHistory.slice(-MAX_PROMPT_HISTORY);
+    }
+    
+    debugChannel.appendLine(`[PROMPT-LOG] ${logEntry}`);
+}
+
+async function exportPromptHistory() {
+    if (promptHistory.length === 0) {
+        vscode.window.showInformationMessage('No prompts recorded yet.');
+        return;
+    }
+    
+    const workspaceFolder = vscode.workspace.workspaceFolders?.[0];
+    if (!workspaceFolder) {
+        vscode.window.showErrorMessage('No workspace folder found for export.');
+        return;
+    }
+    
+    const exportPath = vscode.Uri.joinPath(workspaceFolder.uri, 'prompts-history.txt');
+    const content = [
+        `# AI Prompts History - Generated ${new Date().toISOString()}`,
+        `# Total prompts recorded: ${promptHistory.length}`,
+        '',
+        ...promptHistory
+    ].join('\n');
+    
+    try {
+        await vscode.workspace.fs.writeFile(exportPath, Buffer.from(content, 'utf8'));
+        vscode.window.showInformationMessage(`Prompt history exported to: ${exportPath.fsPath}`);
+        // Open the file
+        const document = await vscode.workspace.openTextDocument(exportPath);
+        vscode.window.showTextDocument(document);
+    } catch (error) {
+        vscode.window.showErrorMessage(`Failed to export prompt history: ${error}`);
+    }
+}
+
+export function deactivate() {
+    if (countdownTimer) {
+        clearInterval(countdownTimer);
     }
     if (statusBarItem) {
         statusBarItem.dispose();
@@ -677,8 +859,5 @@ export function deactivate() {
     }
     if (debugChannel) {
         debugChannel.dispose();
-    }
-    if (exportChannel) {
-        exportChannel.dispose();
     }
 }
